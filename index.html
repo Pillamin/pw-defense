@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>비밀번호 디펜스(Password Defense)</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- [1단계] 진입 전 안내 및 동의 모달 -->
+    <div id="consent-modal" class="modal-overlay">
+        <div class="modal-content">
+            <h2 class="modal-title">비밀번호 보안 실습 안내</h2>
+            <div class="modal-body">
+                <div class="safety-guidelines">
+                    <p class="guideline-intro">🛡️ <strong>안전한 실습을 위한 개인정보 보호 가이드</strong></p>
+                    <ul class="guideline-list">
+                        <li>
+                            <strong class="guideline-title">데이터 즉각 폐기</strong>
+                            <span class="guideline-desc">본 사이트는 입력된 정보를 서버에 절대 전송하거나 저장하지 않으며 실습 즉시 파기합니다.</span>
+                        </li>
+                        <li>
+                            <strong class="guideline-title">가짜 정보 사용 규칙</strong>
+                            <span class="guideline-desc">올바른 보안 습관을 위해 본인의 실제 정보가 아닌 <strong>가짜 정보(이름, 생일, 비밀번호)</strong>를 입력해 주세요.</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <label for="consent-checkbox" class="checkbox-label">
+                    <input type="checkbox" id="consent-checkbox">
+                    <span>가이드라인을 준수하며, 실제 데이터가 아닌 <strong>가짜 이름, 가짜 생년월일, 가짜 비밀번호</strong>로 실습에 참여할 것을 확인합니다.</span>
+                </label>
+                <button type="button" id="start-btn">시작하기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- [2단계] 메인 화면 -->
+    <div id="main-dashboard" class="dashboard-container">
+        
+        <!-- 최상단 헤더 -->
+        <header class="dashboard-header">
+            <h1 class="app-title">비밀번호 디펜스(Password Defense)</h1>
+            <div class="header-controls">
+                <button type="button" id="edu-btn-hash" class="edu-btn">비밀번호는 서버에 어떻게 저장될까?</button>
+                <button type="button" id="edu-btn-guide" class="edu-btn">안전한 비밀번호 vs 위험한 비밀번호</button>
+                <button type="button" id="sound-toggle-btn" class="sound-btn">소리 끄기</button>
+            </div>
+        </header>
+
+        <!-- 상단 설정 영역 (조건 설정 & 경우의 수) -->
+        <div class="dashboard-top-grid">
+            <!-- 비밀번호 조건 설정 -->
+            <section class="section constraints-section">
+                <h2 class="section-title">비밀번호 문자 조합 & 자릿수 설정</h2>
+                <div class="character-types">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="char-lowercase" value="lowercase"> 소문자 (a-z)
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="char-uppercase" value="uppercase"> 대문자 (A-Z)
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="char-number" value="number"> 숫자 (0-9)
+                    </label>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="char-special" value="special"> 특수문자 (32자)
+                    </label>
+                </div>
+
+                <div class="length-range">
+                    <div class="select-group">
+                        <label for="select-min-length">최소 자릿수</label>
+                        <select id="select-min-length">
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8" selected>8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                            <option value="11">11</option>
+                            <option value="12">12</option>
+                            <option value="13">13</option>
+                            <option value="14">14</option>
+                            <option value="15">15</option>
+                            <option value="16">16</option>
+                        </select>
+                    </div>
+                    <div class="select-group">
+                        <label for="select-max-length">최대 자릿수</label>
+                        <select id="select-max-length">
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                            <option value="11">11</option>
+                            <option value="12" selected>12</option>
+                            <option value="13">13</option>
+                            <option value="14">14</option>
+                            <option value="15">15</option>
+                            <option value="16">16</option>
+                        </select>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 실시간 경우의 수 출력 영역 -->
+            <section class="section stats-section">
+                <h2 class="section-title">비밀번호 경우의 수 분석</h2>
+                <div class="stats-display">
+                    <p class="stat-item">문자 1개당 가능한 조합 수 (N): <span id="stat-n-value">0</span>개</p>
+                    <p class="stat-item">총 가능한 비밀번호 경우의 수: <span id="stat-total-combinations">0</span>개</p>
+                    <p class="stat-korean-unit" id="stat-combinations-korean"></p>
+                </div>
+            </section>
+        </div>
+
+        <!-- 하단 입력 영역 -->
+        <section class="section input-section">
+            <div class="section-title-wrapper">
+                <h2 class="section-title">개인정보 힌트 및 실습 비밀번호 입력</h2>
+                <button type="button" id="random-info-btn" class="compact-random-btn">🎲 랜덤 생성</button>
+            </div>
+            
+            <div class="inputs-grid-container">
+                <!-- Row 1: 성/이름 & 생년월일 -->
+                <div class="inputs-grid-row">
+                    <div class="input-group">
+                        <label for="input-last-name">성 / 이름 (한글 입력)</label>
+                        <div class="name-inputs-wrapper">
+                            <input type="text" id="input-last-name" placeholder="홍" autocomplete="off">
+                            <input type="text" id="input-first-name" placeholder="길동" autocomplete="off">
+                        </div>
+                    </div>
+                    <div class="input-group">
+                        <label for="select-birth-year">생년월일</label>
+                        <div class="birthday-selects-wrapper">
+                            <select id="select-birth-year"></select>
+                            <select id="select-birth-month"></select>
+                            <select id="select-birth-day"></select>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Row 2: 휴대폰 번호 & 비밀번호 -->
+                <div class="inputs-grid-row">
+                    <div class="input-group">
+                        <label for="input-phone-2">휴대폰 번호</label>
+                        <div class="phone-inputs-wrapper">
+                            <input type="text" id="input-phone-1" placeholder="010" maxlength="3" value="010" autocomplete="off">
+                            <span>-</span>
+                            <input type="text" id="input-phone-2" placeholder="1234" maxlength="4" autocomplete="off">
+                            <span>-</span>
+                            <input type="text" id="input-phone-3" placeholder="5678" maxlength="4" autocomplete="off">
+                        </div>
+                    </div>
+                    <div class="input-password-container">
+                        <label for="input-password">테스트할 비밀번호</label>
+                        <div class="password-wrapper">
+                            <input type="password" id="input-password" placeholder="비밀번호 입력" autocomplete="new-password">
+                            <button type="button" id="password-toggle-visibility-btn" class="visibility-btn">보기</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- 하단: 시뮬레이션 실행 버튼 -->
+        <footer class="dashboard-footer" style="grid-template-columns: 1fr;">
+            <button type="button" id="run-mode-a-btn" class="primary-btn" style="font-size: 1rem; padding: 14px;">비밀번호 디펜스 시작</button>
+            <button type="button" id="run-mode-b-btn" class="primary-btn" style="display: none;">초고속 무작위 대입 (무차별)</button>
+        </footer>
+    </div>
+
+    <!-- 문서 약관 링크 영역 -->
+    <footer class="legal-footer">
+        <button type="button" id="policy-btn" class="link-btn">개인정보처리방침</button>
+        <span class="divider">|</span>
+        <button type="button" id="tos-btn" class="link-btn">이용약관</button>
+    </footer>
+
+    <!-- 학습용 교육 모달 1: 서버 저장 원리 -->
+    <div id="edu-modal-hash" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <button type="button" class="modal-close-x-btn" aria-label="Close">&times;</button>
+            <h2 class="modal-title">비밀번호는 서버에 어떻게 저장될까?</h2>
+            <div class="modal-body">
+                <p>일방향 해시 함수 및 암호화 원리 설명 교육 콘텐츠가 들어갈 영역입니다.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="edu-close-hash-btn">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 학습용 교육 모달 2: 안전 vs 위험 가이드 -->
+    <div id="edu-modal-guide" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <button type="button" class="modal-close-x-btn" aria-label="Close">&times;</button>
+            <h2 class="modal-title">안전한 비밀번호 vs 위험한 비밀번호</h2>
+            <div class="modal-body">
+                <p>Do's & Don't's 가이드라인 교육 콘텐츠가 들어갈 영역입니다.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="edu-close-guide-btn">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 개인정보처리방침 모달 -->
+    <div id="modal-policy" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <button type="button" class="modal-close-x-btn" aria-label="Close">&times;</button>
+            <h2 class="modal-title">개인정보처리방침</h2>
+            <div class="modal-body">
+                <!-- script.js에서 개인정보처리방침.md 파일 로딩하여 표시 -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="close-policy-btn">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 이용약관 모달 -->
+    <div id="modal-tos" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <button type="button" class="modal-close-x-btn" aria-label="Close">&times;</button>
+            <h2 class="modal-title">이용약관</h2>
+            <div class="modal-body">
+                <!-- script.js에서 이용약관.md 파일 로딩하여 표시 -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="close-tos-btn">닫기</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- [3단계] 결과 및 시뮬레이션 진행 화면 오버레이 -->
+    <div id="result-overlay" class="overlay-container" style="display: none;">
+        <!-- 파티클 캔버스 (옵션 E) -->
+        <canvas id="particle-canvas"></canvas>
+
+        <div class="overlay-content" id="result-card">
+            
+            <!-- 시뮬레이션 애니메이션 및 진행 상황 연출 영역 -->
+            <div id="simulation-progress-area">
+                <h2 id="simulation-title">시뮬레이션 진행 중...</h2>
+                <div id="simulation-visual-display">
+                    <!-- 자릿수 대입 스크롤/룰렛 연출용 요소 -->
+                    <div id="brute-force-roulette" class="roulette-container"></div>
+                </div>
+                <p id="simulation-status-text"></p>
+            </div>
+
+            <!-- 최종 해킹 결과 리포트 영역 (시뮬레이션 완료 후 노출) -->
+            <div id="simulation-result-report" style="display: none;">
+                <h2 id="result-message" class="result-title">디펜스 결과</h2>
+                <div class="result-details">
+                    <p>테스트 비밀번호: <span id="result-tested-password"></span></p>
+                    <p>총 대입 시도 횟수: <span id="result-attempts"></span>번</p>
+                    <p>해킹 예상 소요 시간: <span id="result-time-taken"></span></p>
+                    <!-- 옵션 B: 패턴 상세 정보 -->
+                    <p id="result-pattern-detail" class="result-pattern-detail" style="display:none;"></p>
+                    <p id="result-analysis-comment" class="result-comment"></p>
+                </div>
+            </div>
+
+            <!-- 하단 제어 버튼 -->
+            <div class="overlay-actions" style="flex-wrap: wrap;">
+                <button type="button" id="retry-btn" class="secondary-btn">다른 조건으로 재도전</button>
+                <button type="button" id="guide-popup-btn" class="secondary-btn" style="display: none; border-color: var(--cyan); color: var(--cyan);">안전한 비밀번호 만드는 법</button>
+                <!-- 패턴 매칭 실패 시 모드 B로 연계를 위한 링크 버튼 -->
+                <button type="button" id="link-to-mode-b-btn" class="primary-btn" style="display: none;">무작위 대입 공격 디펜스도 해보기</button>
+            </div>
+
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

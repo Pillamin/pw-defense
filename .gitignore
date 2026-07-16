@@ -1,0 +1,4 @@
+# 백업 및 분석용 문서 파일 제외
+prd.md
+sytle.md
+*.txt
