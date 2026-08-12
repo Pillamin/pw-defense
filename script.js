@@ -408,8 +408,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return isValid;
     }
 
-    // 검증 실패 시 팝업 안내창
-    function showValidationPopup() {
+    // 검증 실패 시 팝업 안내창 (onProceed 콜백 제공)
+    function showValidationPopup(onProceed) {
         const N    = (() => {
             let n = 0;
             if (charLowercase.checked) n += 26;
@@ -428,42 +428,82 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             if (N === 0)                  issues.push('문자 조합(소문자, 대문자, 숫자, 특수문자 중 하나 이상)을 체크해 주세요.');
             if (minL > maxL)             issues.push('최소 자릿수가 최대 자릿수보다 클 수 없습니다.');
-            if (password.length < minL)  issues.push(`비밀번호가 너무 짧습니다. (현재 ${password.length}자 / 최소 ${minL}자 필요)`);
-            if (password.length > maxL)  issues.push(`비밀번호가 너무 깁니다. (현재 ${password.length}자 / 최대 ${maxL}자)`);
-            if (charLowercase.checked && !/[a-z]/.test(password)) issues.push('소문자(a-z)가 포함되어야 합니다.');
-            if (charUppercase.checked && !/[A-Z]/.test(password)) issues.push('대문자(A-Z)가 포함되어야 합니다.');
-            if (charNumber.checked    && !/[0-9]/.test(password)) issues.push('숫자(0-9)가 포함되어야 합니다.');
-            if (charSpecial.checked   && !/[^a-zA-Z0-9]/.test(password)) issues.push('특수문자가 포함되어야 합니다.');
+            if (password.length < minL)  issues.push(`설정한 조건과 일치하지 않습니다. (현재 ${password.length}자 / 최소 ${minL}자 필요)`);
+            if (password.length > maxL)  issues.push(`설정한 조건과 일치하지 않습니다. (현재 ${password.length}자 / 최대 ${maxL}자)`);
+            if (charLowercase.checked && !/[a-z]/.test(password)) issues.push('설정한 조건과 달리 소문자(a-z)가 포함되어 있지 않습니다.');
+            if (charUppercase.checked && !/[A-Z]/.test(password)) issues.push('설정한 조건과 달리 대문자(A-Z)가 포함되어 있지 않습니다.');
+            if (charNumber.checked    && !/[0-9]/.test(password)) issues.push('설정한 조건과 달리 숫자(0-9)가 포함되어 있지 않습니다.');
+            if (charSpecial.checked   && !/[^a-zA-Z0-9]/.test(password)) issues.push('설정한 조건과 달리 특수문자가 포함되어 있지 않습니다.');
         }
 
-        // 팝업 모달 동적 생성 (이미 있으면 재사용)
-        let popup = document.getElementById('validation-popup-modal');
+        if (password.length === 0) {
+            // 비밀번호 자체가 없으면 진행 불가
+            let popup = document.getElementById('validation-popup-modal');
+            if (!popup) {
+                popup = document.createElement('div');
+                popup.id = 'validation-popup-modal';
+                popup.className = 'modal-overlay';
+                popup.style.cssText = 'display:none; z-index:2000;';
+                popup.innerHTML = `
+                    <div class="modal-content" style="max-width:480px;">
+                        <button type="button" class="modal-close-x-btn" id="val-popup-x">&times;</button>
+                        <h2 class="modal-title" style="color:var(--red);text-shadow:var(--glow-r);font-size:1rem;">
+                            ⚠ 비밀번호 미입력
+                        </h2>
+                        <div class="modal-body" id="val-popup-body" style="color:var(--text-main);"></div>
+                        <div class="modal-footer">
+                            <button type="button" id="val-popup-change-only" class="primary-btn">비밀번호 입력하기</button>
+                        </div>
+                    </div>`;
+                document.body.appendChild(popup);
+            }
+            const body = document.getElementById('val-popup-body');
+            body.innerHTML = `<p style="margin:0;">비밀번호를 입력해야 실습을 진행할 수 있습니다.</p>`;
+            document.getElementById('val-popup-x').onclick = () => { popup.style.display = 'none'; };
+            document.getElementById('val-popup-change-only').onclick = () => { popup.style.display = 'none'; };
+            playSound('fail');
+            popup.style.display = 'flex';
+            return;
+        }
+
+        // 비밀번호는 있지만 조건 불일치인 경우 -> 팝업에 변경하기/그대로 진행하기 2개 버튼
+        let popup = document.getElementById('validation-popup-modal-choice');
         if (!popup) {
             popup = document.createElement('div');
-            popup.id = 'validation-popup-modal';
+            popup.id = 'validation-popup-modal-choice';
             popup.className = 'modal-overlay';
             popup.style.cssText = 'display:none; z-index:2000;';
             popup.innerHTML = `
-                <div class="modal-content" style="max-width:480px;">
-                    <button type="button" class="modal-close-x-btn" id="val-popup-x">&times;</button>
+                <div class="modal-content" style="max-width:500px;">
+                    <button type="button" class="modal-close-x-btn" id="val-choice-x">&times;</button>
                     <h2 class="modal-title" style="color:var(--red);text-shadow:var(--glow-r);font-size:1rem;">
-                        ⚠ 입력 조건 불일치
+                        ⚠ 비밀번호 조건 불일치
                     </h2>
-                    <div class="modal-body" id="val-popup-body" style="color:var(--text-main);"></div>
-                    <div class="modal-footer">
-                        <button type="button" id="val-popup-ok" class="primary-btn">확인</button>
+                    <div class="modal-body" id="val-choice-body" style="color:var(--text-main);"></div>
+                    <div class="modal-footer" style="display:flex;gap:10px;margin-top:16px;">
+                        <button type="button" id="val-choice-change" class="secondary-btn" style="flex:1;">비밀번호 변경하기</button>
+                        <button type="button" id="val-choice-proceed" class="primary-btn" style="flex:1;">그대로 진행하기</button>
                     </div>
                 </div>`;
             document.body.appendChild(popup);
-            document.getElementById('val-popup-x').addEventListener('click',  () => { popup.style.display = 'none'; });
-            document.getElementById('val-popup-ok').addEventListener('click', () => { popup.style.display = 'none'; playSound('typewriter'); });
-            popup.addEventListener('click', e => { if (e.target === popup) popup.style.display = 'none'; });
         }
 
-        const body = document.getElementById('val-popup-body');
-        body.innerHTML = `<ul style="list-style:none;padding:0;display:flex;flex-direction:column;gap:10px;">
-            ${issues.map(msg => `<li style="display:flex;gap:8px;align-items:flex-start;"><span style="color:var(--red);font-family:var(--font-mono);flex-shrink:0;">▸</span><span>${msg}</span></li>`).join('')}
-        </ul>`;
+        const body = document.getElementById('val-choice-body');
+        body.innerHTML = `
+            <p style="margin-bottom:12px;color:var(--amber);font-weight:600;">입력한 비밀번호가 설정된 조건과 일치하지 않습니다.</p>
+            <ul style="list-style:none;padding:0;display:flex;flex-direction:column;gap:8px;">
+                ${issues.map(msg => `<li style="display:flex;gap:8px;align-items:flex-start;"><span style="color:var(--red);font-family:var(--font-mono);flex-shrink:0;">▸</span><span>${msg}</span></li>`).join('')}
+            </ul>`;
+
+        document.getElementById('val-choice-x').onclick = () => { popup.style.display = 'none'; };
+        document.getElementById('val-choice-change').onclick = () => { 
+            popup.style.display = 'none'; 
+            inputPassword.focus();
+        };
+        document.getElementById('val-choice-proceed').onclick = () => { 
+            popup.style.display = 'none'; 
+            if (typeof onProceed === 'function') onProceed();
+        };
 
         playSound('fail');
         popup.style.display = 'flex';
@@ -639,15 +679,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 이름 후보 (원형, 대소문자 변형 전)
         const nameBase = [
-            { val: lastQwerty,           desc: '성(한영자판)' },
-            { val: firstQwerty,          desc: '이름(한영자판)' },
-            { val: fullQwerty,           desc: '성+이름 풀네임(한영자판)' },
-            { val: fullInitialQ,         desc: '풀네임 이니셜(한영자판)' },
-            { val: firstInitialQ,        desc: '이름 이니셜(한영자판)' },
-            { val: consonantsQ,          desc: '한글 초성(한영자판)' },
+            { val: lastQwerty,           desc: '성' },
+            { val: firstQwerty,          desc: '이름' },
+            { val: fullQwerty,           desc: '성+이름' },
+            { val: fullInitialQ,         desc: '이니셜' },
+            { val: firstInitialQ,        desc: '이름 이니셜' },
+            { val: consonantsQ,          desc: '한글 초성' },
             { val: lastName,             desc: '성(한글)' },
             { val: firstName,            desc: '이름(한글)' },
-            { val: lastName + firstName, desc: '성+이름 풀네임(한글)' },
+            { val: lastName + firstName, desc: '성+이름(한글)' },
         ].filter(c => c.val && c.val.trim().length > 0);
 
         // 대소문자 변형 적용 (영문/QWERTY 계열만)
@@ -664,11 +704,11 @@ document.addEventListener('DOMContentLoaded', () => {
                        + firstQwerty[0].toUpperCase() + firstQwerty.slice(1).toLowerCase())
                     : null;
 
-                if (lower    !== c.val)                          nameElements.push({ val: lower,    desc: c.desc + '(전체소문자)' });
-                if (capFirst !== c.val && capFirst !== lower)    nameElements.push({ val: capFirst, desc: c.desc + '(첫글자대문자)' });
+                if (lower    !== c.val)                          nameElements.push({ val: lower,    desc: c.desc });
+                if (capFirst !== c.val && capFirst !== lower)    nameElements.push({ val: capFirst, desc: c.desc });
                 if (camel && camel !== c.val && camel !== capFirst)
-                                                                 nameElements.push({ val: camel,    desc: c.desc + '(카멜케이스)' });
-                if (upper    !== c.val && upper !== capFirst)    nameElements.push({ val: upper,    desc: c.desc + '(전체대문자)' });
+                                                                 nameElements.push({ val: camel,    desc: c.desc });
+                if (upper    !== c.val && upper !== capFirst)    nameElements.push({ val: upper,    desc: c.desc });
             }
         }
 
@@ -682,15 +722,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const bY2      = bYear.slice(2);
 
         const dateElements = [
-            { val: bYear + bMonth + bDay,       desc: '생년월일 YYYYMMDD(8자리)' },
-            { val: bY2   + bMonth + bDay,       desc: '생년월일 YYMMDD(6자리)' },
-            { val: bMonth + bDay,               desc: '생일 MMDD(4자리)' },
-            { val: bYear,                       desc: '출생연도 YYYY(4자리)' },
-            { val: bY2,                         desc: '출생연도 YY(2자리)' },
-            { val: bMonthNZ + '.' + bDayNZ,     desc: '생일 M.D(점구분)' },
-            { val: bMonthNZ + bDay,             desc: '생일 M+DD(월0제거)' },
-            { val: bMonth   + bDayNZ,           desc: '생일 MM+D(일0제거)' },
-            { val: bMonthNZ + bDayNZ,           desc: '생일 M+D(둘다0제거)' },
+            { val: bYear + bMonth + bDay,       desc: '생년월일' },
+            { val: bY2   + bMonth + bDay,       desc: '생년월일' },
+            { val: bMonth + bDay,               desc: '생일' },
+            { val: bYear,                       desc: '출생연도' },
+            { val: bY2,                         desc: '출생연도' },
+            { val: bMonthNZ + '.' + bDayNZ,     desc: '생일' },
+            { val: bMonthNZ + bDay,             desc: '생일' },
+            { val: bMonth   + bDayNZ,           desc: '생일' },
+            { val: bMonthNZ + bDayNZ,           desc: '생일' },
         ].filter(d => d.val && d.val.trim().length > 0 && d.val !== '.');
 
         // ── 1.3 전화번호 요소 ──
@@ -698,29 +738,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const ph3 = document.getElementById('input-phone-3')?.value || '';
 
         const phoneElements = [];
-        if (ph3)           phoneElements.push({ val: ph3,        desc: '전화번호 뒷자리(4자리)' });
-        if (ph2)           phoneElements.push({ val: ph2,        desc: '전화번호 가운데(3~4자리)' });
-        if (ph2 && ph3)    phoneElements.push({ val: ph2 + ph3,  desc: '전화번호 가운데+뒷자리(7~8자리)' });
+        if (ph3)           phoneElements.push({ val: ph3,        desc: '전화번호' });
+        if (ph2)           phoneElements.push({ val: ph2,        desc: '전화번호' });
+        if (ph2 && ph3)    phoneElements.push({ val: ph2 + ph3,  desc: '전화번호' });
 
         // ── 1.4 특수문자 세트 ──
         const specialElements = [
             // 단일
-            { val: '!',    desc: '특수(!)' },   { val: '@',  desc: '특수(@)' },
-            { val: '#',    desc: '특수(#)' },   { val: '$',  desc: '특수($)' },
-            { val: '%',    desc: '특수(%)' },   { val: '^',  desc: '특수(^)' },
-            { val: '&',    desc: '특수(&)' },   { val: '*',  desc: '특수(*)' },
-            { val: '?',    desc: '특수(?)' },   { val: '_',  desc: '특수(_)' },
-            { val: '+',    desc: '특수(+)' },
+            { val: '!',    desc: '!' },   { val: '@',  desc: '@' },
+            { val: '#',    desc: '#' },   { val: '$',  desc: '$' },
+            { val: '%',    desc: '%' },   { val: '^',  desc: '^' },
+            { val: '&',    desc: '&' },   { val: '*',  desc: '*' },
+            { val: '?',    desc: '?' },   { val: '_',  desc: '_' },
+            { val: '+',    desc: '+' },
             // 2자 조합
-            { val: '!!',   desc: '특수(!!)' },  { val: '!@', desc: '특수(!@)' },
-            { val: '@!',   desc: '특수(@!)' },  { val: '@@', desc: '특수(@@)' },
-            { val: '!#',   desc: '특수(!#)' },  { val: '@#', desc: '특수(@#)' },
-            { val: '#!',   desc: '특수(#!)' },  { val: '!$', desc: '특수(!$)' },
+            { val: '!!',   desc: '!!' },  { val: '!@', desc: '!@' },
+            { val: '@!',   desc: '@!' },  { val: '@@', desc: '@@' },
+            { val: '!#',   desc: '!#' },  { val: '@#', desc: '@#' },
+            { val: '#!',   desc: '#!' },  { val: '!$', desc: '!$' },
             // 3자/4자 조합
-            { val: '!@#',  desc: '특수(!@#)'  },
-            { val: '!@#$', desc: '특수(!@#$)' },
-            { val: '@#$',  desc: '특수(@#$)'  },
-            { val: '#$%',  desc: '특수(#$%)'  },
+            { val: '!@#',  desc: '!@#'  },
+            { val: '!@#$', desc: '!@#$' },
+            { val: '@#$',  desc: '@#$'  },
+            { val: '#$%',  desc: '#$%'  },
         ];
 
         // ═══════════════════════════════════════════════════════════════
@@ -737,8 +777,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // 2.2 단일 재료 + 특수문자 (뒤 / 앞)
         for (const m of allPersonal) {
             for (const s of specialElements) {
-                add(m.val + s.val, `${m.desc} + ${s.desc}`);   // 뒤
-                add(s.val + m.val, `${s.desc} + ${m.desc}`);   // 앞
+                add(m.val + s.val, `${m.desc}+${s.desc}`);   // 뒤
+                add(s.val + m.val, `${s.desc}+${m.desc}`);   // 앞
             }
         }
 
@@ -748,10 +788,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (i === j) continue;
                 const A = allPersonal[i], B = allPersonal[j];
                 // A + B
-                add(A.val + B.val, `${A.desc} + ${B.desc}`);
+                add(A.val + B.val, `${A.desc}+${B.desc}`);
                 // A + 특수 + B (중간 삽입)
                 for (const s of specialElements) {
-                    add(A.val + s.val + B.val, `${A.desc} + ${s.desc}(중간) + ${B.desc}`);
+                    add(A.val + s.val + B.val, `${A.desc}+${s.desc}+${B.desc}`);
                 }
             }
         }
@@ -762,8 +802,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (i === j) continue;
                 const A = allPersonal[i], B = allPersonal[j];
                 for (const s of specialElements) {
-                    add(A.val + B.val + s.val, `${A.desc} + ${B.desc} + ${s.desc}`);          // 뒤
-                    add(s.val + A.val + B.val, `${s.desc}(앞) + ${A.desc} + ${B.desc}`);      // 앞
+                    add(A.val + B.val + s.val, `${A.desc}+${B.desc}+${s.desc}`);          // 뒤
+                    add(s.val + A.val + B.val, `${s.desc}+${A.desc}+${B.desc}`);      // 앞
                 }
             }
         }
@@ -797,11 +837,45 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // ═══════════════════════════════════════════════════════════════
-        // 3. 검사 (includes: 부분 문자열 포함 여부)
+        // 3. 검사 (완전 일치 우선 → 부분 일치 중 가장 긴 조합 매칭)
         // ═══════════════════════════════════════════════════════════════
         const pwLower = password.toLowerCase();
-        const found = dictionary.find(item => pwLower.includes(item.password.toLowerCase()));
-        return found || null;
+        const matches = [];
+        for (let idx = 0; idx < dictionary.length; idx++) {
+            const item = dictionary[idx];
+            const itemPwLower = item.password.toLowerCase();
+            if (pwLower === itemPwLower) {
+                // 입력값 전체와 완벽히 일치하는 조합 패턴 발견 시 최우선 반환
+                return {
+                    password: item.password,
+                    pattern: item.pattern,
+                    attemptCount: idx + 1,
+                    matchLength: item.password.length
+                };
+            }
+            if (pwLower.includes(itemPwLower)) {
+                matches.push({
+                    password: item.password,
+                    pattern: item.pattern,
+                    attemptCount: idx + 1,
+                    matchLength: item.password.length
+                });
+            }
+        }
+
+        if (matches.length > 0) {
+            // 매칭된 패턴의 길이가 가장 긴 조합 우선, 길이가 같으면 조합(+) 패턴 우선
+            matches.sort((a, b) => {
+                if (b.matchLength !== a.matchLength) {
+                    return b.matchLength - a.matchLength;
+                }
+                const aHasPlus = a.pattern.includes('+') ? 1 : 0;
+                const bHasPlus = b.pattern.includes('+') ? 1 : 0;
+                return bHasPlus - aHasPlus;
+            });
+            return matches[0];
+        }
+        return null;
     }
 
     function formatTime(seconds) {
@@ -836,6 +910,14 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 400);
     }
 
+    const closeResultOverlayBtn = document.getElementById('close-result-overlay-btn');
+    if (closeResultOverlayBtn) {
+        closeResultOverlayBtn.addEventListener('click', () => {
+            if (retryBtn) retryBtn.click();
+            else resultOverlay.style.display = 'none';
+        });
+    }
+
     // Mode A: Smart Pattern Attack (with terminal output logging)
     function runSimulationModeA() {
         const password = inputPassword.value;
@@ -848,6 +930,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('simulation-progress-area').style.display = 'flex';
         document.getElementById('simulation-result-report').style.display = 'none';
         document.getElementById('simulation-title').textContent = '지능형 패턴 추측 공격';
+        document.getElementById('simulation-status-text').textContent = '개인정보 기반 지능형 추측 공격 중...';
         
         // 진행 중에는 하단 제어 버튼 전부 숨김
         retryBtn.style.display = 'none';
@@ -957,7 +1040,7 @@ document.addEventListener('DOMContentLoaded', () => {
         resultOverlay.style.display = 'flex';
         document.getElementById('simulation-progress-area').style.display = 'flex';
         document.getElementById('simulation-result-report').style.display = 'none';
-        document.getElementById('simulation-title').textContent = '무작위 대입 공격 디펜스';
+        document.getElementById('simulation-title').textContent = '무작위 대입 공격';
         
         // 진행 중에는 하단 제어 버튼 전부 숨김
         retryBtn.style.display = 'none';
@@ -1005,7 +1088,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 roulette.appendChild(span);
             }
 
-            document.getElementById('simulation-status-text').textContent = `현재 크래킹 위치: ${Math.min(L, lockedCount + 1)}번째 자리 해독 중... (초당 1,000억회 비밀번호 대입 중)`;
+            document.getElementById('simulation-status-text').textContent = `초당 1,000억 회 비밀번호 대입 연산 중...`;
 
             if (progress < 1) {
                 requestAnimationFrame(animate);
@@ -1033,50 +1116,63 @@ document.addEventListener('DOMContentLoaded', () => {
         const resultAttempts = document.getElementById('result-attempts');
         const resultTimeTaken = document.getElementById('result-time-taken');
         const resultAnalysisComment = document.getElementById('result-analysis-comment');
+        const resultPatternDetail = document.getElementById('result-pattern-detail');
         const cardEl = document.getElementById('result-card');
 
         resultTestedPassword.textContent = password;
-        resultAttempts.textContent = attempts.toLocaleString('ko-KR');
+        resultAttempts.textContent = attempts.toLocaleString('ko-KR') + '회';
         resultTimeTaken.textContent = formatTime(seconds);
         // 레이블 복원: 무작위 대입 컨텍스트
         const rowA = resultAttempts.closest('p');
         const rowT = resultTimeTaken.closest('p');
-        if (rowA) rowA.childNodes[0].textContent = '원리상 필요 시도 횟수: ';
+        if (rowA) rowA.childNodes[0].textContent = '무작위 대입 시도 횟수: ';
         if (rowT) rowT.childNodes[0].textContent = '해킹 예상 소요 시간: ';
 
-        const guidePopupBtn = document.getElementById('guide-popup-btn');
-        const isSafe = !isAAttacked && seconds >= 86400;
+        const isBPass = seconds >= 86400;
+        const isSafe = !isAAttacked && isBPass;
 
         if (isSafe) {
             // ★ 2단계까지 완전 통과 — 초록 테마
             if (cardEl) cardEl.classList.add('result-card-safe');
-            resultMessage.textContent    = '디펜스 결과';
+            resultMessage.textContent    = '2단계 무작위 대입 공격 디펜스 결과';
             resultMessage.style.color      = 'var(--neon-green)';
             resultMessage.style.textShadow = 'var(--glow-green)';
             guidePopupBtn.style.display  = 'none';
-            resultAnalysisComment.innerHTML = `<span style="color:var(--neon-green);font-weight:700;">[\ubcf4\uc548 \ucde8\uc57d \ub4f1\uae09: \ucd5c\uc0c1]</span> \uc9c0\ub2a5\ud615 \ud328\ud134 \ucd94\uce21 \uacf5\uaca9\uc5d0 \uc548\uc804\ud560 \ub73b\ub9cc \uc544\ub2c8\ub77c, \ucd08\uace0\uc18d \ubb34\uc791\uc704 \ub300\uc785\uc744 \uc2dc\ub3c4\ud558\ub354\ub77c\ub3c4 \ud574\ud0b9\uae4c지 \uc57d ${formatTime(seconds)}\uc774 \uc18c\uc694\ub429\ub2c8\ub2e4. \uc644\ubcbd\ud558\uac8c \uc548\uc804\ud558\uba70 \ud6cc\ub96d\ud55c \uc218\uc900\uc758 \ube44\ubc00\ubc88\ud638 \ubcf4\uc548\uc744 \uac6c\ucd94\uace0 \uc788\uc2b5\ub2c8\ub2e4.`;
+            if (resultPatternDetail) {
+                resultPatternDetail.textContent = '[PASS] 무작위 대입 디펜스 성공: 충분한 자릿수 및 문자 조합';
+                resultPatternDetail.style.display = 'block';
+                resultPatternDetail.style.color = 'var(--neon-green)';
+                resultPatternDetail.style.borderLeftColor = 'var(--neon-green)';
+                resultPatternDetail.style.background = 'rgba(57,255,110,0.06)';
+            }
+            resultAnalysisComment.textContent = `초고속 무작위 대입 공격을 완벽히 방어할 수 있는 길이와 조합을 갖추었습니다. 해킹까지 약 ${formatTime(seconds)}이(가) 소요되어 매우 안전합니다.`;
         } else {
             // 위험 또는 하나 이상 불통과 — 적색/황색 테마
             if (cardEl) cardEl.classList.remove('result-card-safe');
-            resultMessage.textContent    = '디펜스 결과';
+            resultMessage.textContent    = '2단계 무작위 대입 공격 디펜스 결과';
             resultMessage.style.color      = 'var(--neon-red)';
             resultMessage.style.textShadow = 'var(--glow-red)';
 
-            if (isAAttacked) {
-                guidePopupBtn.style.display = 'block';
-                if (seconds < 86400) {
-                    resultAnalysisComment.innerHTML = `<span style="color:var(--red);">[\ubcf4\uc548 \ucde8\uc57d \ub4f1\uae09: \ucd5c\ud558]</span> \uc774\ubbf8 \uc9c0\ub2a5\ud615 \ud328\ud134 \ucd94\uce21 \uacf5\uaca9\uc73c\ub85c 0.01\ucd08 \ub9cc\uc5d0 \uc720\ucd94\ub420 \ub73b\ub9cc \uc544\ub2c8\ub77c, \ubb34\ucc28\ubcc4 \ub300\uc785 \uacf5\uaca9\uc744 \ud1b5\ud574\uc11c\ub3c4 \ub2e8 ${formatTime(seconds)} \ub9cc\uc5d0 \uc26d\uac8c \ud30c\uad34\ub429\ub2c8\ub2e4. \uc989\uc2dc \ube44\ubc00\ubc88\ud638\ub97c \ubcc0\uacbd\ud558\uc2ed\uc2dc\uc624.`;
-                } else {
-                    resultAnalysisComment.innerHTML = `<span style="color:var(--red);">[\ubcf4\uc548 \ucde8\uc57d \ub4f1\uae09: \uc704\ud5d8]</span> \uc774 \ud328\uc2a4\uc6cc\ub4dc\ub294 \ubb34\ucc28\ubcc4 \ub300\uc785(\ubb34\uc791\uc704 \ud0d0\uc0c9)\uc73c\ub85c\ub294 \uc57d ${formatTime(seconds)} \ub3d9\uc548 \ubc84\ud2f8 \uc218 \uc788\uc5b4 \ubcf5\uc7a1\uc131\uc740 \ucda9\ubd84\ud569\ub2c8\ub2e4. \uadf8\ub7ec\ub098, \ubcf8\uc778\uc758 \uac1c\uc778\uc815\ubcf4 \uc870\ud569\uc774\ub098 \uc5f0\uc18d \ubb38\uc790 \ud328\ud134\uc73c\ub85c \uc778\ud574 <strong>\uc9c0\ub2a5\ud615 \ud328\ud134 \ucd94\uce21 \ub2e8\uacc4(0.01\ucd08 \ubbf8\ub9cc)\uc5d0\uc11c \uc989\uc2dc \ud574\ud0b9</strong>\ub429\ub2c8\ub2e4. \uc544\ubb34\ub9ac \uae38\uc5b4\ub3c4 \uac1c\uc778\uc815\ubcf4\ub098 \ud754\ud55c \uc5f0\uc18d \ud0a4\ubcf4\ub4dc \ubc30\uc5f4\uc774 \ud3ec\ud568\ub418\uba74 \uc548\uc804\ud558\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4.`;
+            if (isBPass) {
+                guidePopupBtn.style.display = 'none';
+                if (resultPatternDetail) {
+                    resultPatternDetail.textContent = '[PASS] 무작위 대입 디펜스 성공: 충분한 자릿수 및 문자 조합';
+                    resultPatternDetail.style.display = 'block';
+                    resultPatternDetail.style.color = 'var(--neon-green)';
+                    resultPatternDetail.style.borderLeftColor = 'var(--neon-green)';
+                    resultPatternDetail.style.background = 'rgba(57,255,110,0.06)';
                 }
+                resultAnalysisComment.textContent = `초고속 무작위 대입 연산 공격을 버텨낼 수 있는 충분한 복잡성을 갖추었습니다. 해킹까지 약 ${formatTime(seconds)}이(가) 소요됩니다.`;
             } else {
-                if (seconds < 86400) {
-                    guidePopupBtn.style.display = 'block';
-                    resultAnalysisComment.innerHTML = `<span style="color:var(--amber);">[\ubcf4\uc548 \ucde8\uc57d \ub4f1\uae09: \uacbd\uace0]</span> \uac1c\uc778\uc815\ubcf4 \ubc0f \uc5f0\uc18d \ubb38\uc790 \ud328\ud134\uc740 \uc798 \ud53c\ud588\uc2b5\ub2c8\ub2e4. \uadf8\ub7ec\ub098 \ube44\ubc00\ubc88\ud638\uac00 \ub2e8\uc21c\ud558\uac70\ub098 \uc9e7\uc544 \ubb34\ucc28\ubcc4 \ub300\uc785 \uc7a5\ube44\uc5d0 \uc758\ud574 \ub2e8 ${formatTime(seconds)} \ub9cc\uc5d0 \ud574\ud0b9\ub2f9\ud569\ub2c8\ub2e4. \uc790\ub9bf\uc218\ub97c \ub298\ub9ac\uace0, \ub300\uc18c\ubb38\uc790, \uc22b\uc790, \ud2b9\uc218\ubb38\uc790\ub97c \uc870\ud569\ud558\uc5ec \ub354 \ubcf5\uc7a1\ud558\uac8c \uc124\uc815\ud558\uc138\uc694.`;
-                } else {
-                    guidePopupBtn.style.display = 'none';
-                    resultAnalysisComment.innerHTML = `<span style="color:var(--neon-green);font-weight:700;">[\ubcf4\uc548 \ucde8\uc57d \ub4f1\uae09: \ucd5c\uc0c1]</span> \uc9c0\ub2a5\ud615 \ud328\ud134 \ucd94\uce21 \uacf5\uaca9\uc5d0 \uc548\uc804\ud560 \ub73b\ub9cc \uc544\ub2c8\ub77c, \ucd08\uace0\uc18d \ubb34\uc791\uc704 \ub300\uc785\uc744 \uc2dc\ub3c4\ud558\ub354\ub77c\ub3c4 \ud574\ud0b9\uae4c\uc9c0 \uc57d ${formatTime(seconds)}\uc774 \uc18c\uc694\ub429\ub2c8\ub2e4. \uc644\ubcbd\ud558\uac8c \uc548\uc804\ud558\uba70 \ud6cc\ub96d\ud55c \uc218\uc900\uc758 \ube44\ubc00\ubc88\ud638 \ubcf4\uc548\uc744 \uac16\ucd94\uace0 \uc788\uc2b5\ub2c8\ub2e4.`;
+                guidePopupBtn.style.display = 'block';
+                if (resultPatternDetail) {
+                    resultPatternDetail.textContent = '[FAIL] 무작위 대입 디펜스 실패: 자릿수 및 조합 부족';
+                    resultPatternDetail.style.display = 'block';
+                    resultPatternDetail.style.color = 'var(--red)';
+                    resultPatternDetail.style.borderLeftColor = 'var(--red)';
+                    resultPatternDetail.style.background = 'rgba(255,0,60,0.04)';
                 }
+                resultAnalysisComment.textContent = `비밀번호 자릿수가 짧거나 문자 조합이 단순하여 초고속 무작위 대입 장비에 단 ${formatTime(seconds)} 만에 해킹당합니다. 자릿수를 늘리고 대소문자, 숫자, 특수문자를 조합하여 설정하세요.`;
             }
         }
     }
@@ -1116,11 +1212,17 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     runModeABtn.addEventListener('click', () => {
-        if (!validateInputsAndCalculate()) { showValidationPopup(); return; }
+        if (!validateInputsAndCalculate()) { 
+            showValidationPopup(() => runSimulationModeA()); 
+            return; 
+        }
         runSimulationModeA();
     });
     runModeBBtn.addEventListener('click', () => {
-        if (!validateInputsAndCalculate()) { showValidationPopup(); return; }
+        if (!validateInputsAndCalculate()) { 
+            showValidationPopup(() => runSimulationModeA()); 
+            return; 
+        }
         runSimulationModeB();
     });
 
@@ -1197,10 +1299,14 @@ document.addEventListener('DOMContentLoaded', () => {
         enterHint.classList.toggle('visible', !!show);
     }
 
-    // 엔터키 → 모드 A 실행
+    // 엔터키 → 모드 A 실행 (조건 불일치 시 팝업 띄움)
     inputPassword.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter' && !runModeABtn.disabled) {
+        if (e.key === 'Enter') {
             e.preventDefault();
+            if (!validateInputsAndCalculate()) {
+                showValidationPopup(() => runSimulationModeA());
+                return;
+            }
             playSound('success');
             runSimulationModeA();
         }
@@ -1379,10 +1485,17 @@ document.addEventListener('DOMContentLoaded', () => {
         ];
         extraWords.forEach(w => extraPatterns.push({ password: w, pattern: `흔한 패턴(${w})` }));
 
-        const found2 = extraPatterns.find(item =>
-            password.toLowerCase().includes(item.password.toLowerCase())
-        );
-        return found2 || null;
+        for (let idx = 0; idx < extraPatterns.length; idx++) {
+            const item = extraPatterns[idx];
+            if (password.toLowerCase().includes(item.password.toLowerCase())) {
+                return {
+                    password: item.password,
+                    pattern: item.pattern,
+                    attemptCount: 1200 + idx + 1
+                };
+            }
+        }
+        return null;
     }
 
     // finishModeA 재정의: 강화 패턴 + 상세 표시
@@ -1409,21 +1522,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (matchedPattern) {
             // ── 1단계 탐지: 취약 ──
             isAAttacked = true;
+            window.lastMatchedPatternText = matchedPattern.pattern;
             playSound('fail');
-            resultMessage.textContent    = '디펜스 결과';
+            resultMessage.textContent    = '1단계 지능형 패턴 공격 디펜스 결과';
             resultMessage.style.color      = 'var(--neon-red)';
             resultMessage.style.textShadow = 'var(--glow-red)';
-            resultAttempts.textContent   = '1 (지능형 조합 매칭)';
+            resultAttempts.textContent   = `검출 (${matchedPattern.pattern})`;
             resultTimeTaken.textContent  = '0.01초 미만';
             // 레이블 변경: 패턴 공격 컨텍스트
             const rowAttempts1 = resultAttempts.closest('p');
             const rowTime1     = resultTimeTaken.closest('p');
-            if (rowAttempts1) rowAttempts1.childNodes[0].textContent = '패턴 매칭 횟수: ';
+            if (rowAttempts1) rowAttempts1.childNodes[0].textContent = '패턴 매칭 결과: ';
             if (rowTime1)     rowTime1.childNodes[0].textContent     = '해독 소요 시간: ';
             resultAnalysisComment.textContent =
-                `비밀번호가 개인정보 조합 패턴인 "${matchedPattern.pattern}"에 매칭되어 해커가 사전 분석으로 단 0.01초 만에 풀어냈습니다.`;
+                `입력한 개인정보 및 흔한 연속 패턴("${matchedPattern.pattern}")이 포함되어 있어, 사전 분석으로 단 ${matchedPattern.attemptCount.toLocaleString('ko-KR')}회 시도 만에(0.01초 미만) 파쇄되었습니다.`;
             if (resultPatternDetail) {
-                resultPatternDetail.textContent = `[MATCH] 검출된 패턴: ${matchedPattern.pattern}`;
+                resultPatternDetail.textContent = '[FAIL] 지능형 패턴 공격 디펜스 실패: 개인 정보 및 연속 패턴 검출';
                 resultPatternDetail.style.display = 'block';
                 resultPatternDetail.style.color = 'var(--red)';
                 resultPatternDetail.style.borderLeftColor = 'var(--red)';
@@ -1434,7 +1548,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (cardEl1) cardEl1.classList.remove('result-card-safe');
 
             // ★ 탐지 시 버튼: 재도전 + 안전한 비밀번호 만드는 법만
-            retryBtn.textContent        = '다른 방법으로 재도전';
+            retryBtn.textContent        = '비밀번호 수정 후 다시 시도';
             retryBtn.style.display      = 'block';
             guidePopupBtn.style.display = 'block';
             linkToModeBBtn.style.display = 'none';   // 2단계 버튼 숨김
@@ -1442,21 +1556,22 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             // ── 1단계 통과: 안전 ──
             isAAttacked = false;
+            window.lastMatchedPatternText = null;
             playSound('success');
-            resultMessage.textContent    = '디펜스 결과';
+            resultMessage.textContent    = '1단계 지능형 패턴 공격 디펜스 결과';
             resultMessage.style.color      = 'var(--neon-green)';
             resultMessage.style.textShadow = 'var(--glow-green)';
-            resultAttempts.textContent   = '일치 항목 없음';
-            resultTimeTaken.textContent  = '대입 불가';
+            resultAttempts.textContent   = '미검출(안전)';
+            resultTimeTaken.textContent  = '해독 불가 (패턴 일치 항목 없음)';
             // 레이블 변경: 패턴 공격 컨텍스트
             const rowAttempts2 = resultAttempts.closest('p');
             const rowTime2     = resultTimeTaken.closest('p');
-            if (rowAttempts2) rowAttempts2.childNodes[0].textContent = '패턴 매칭 횟수: ';
+            if (rowAttempts2) rowAttempts2.childNodes[0].textContent = '패턴 매칭 결과: ';
             if (rowTime2)     rowTime2.childNodes[0].textContent     = '해독 소요 시간: ';
             resultAnalysisComment.textContent =
-                '지능형 패턴 및 개인정보 조합 추측 공격에 안전합니다! 이제 2단계 — 초고속 무작위 대입 공격을 버텨낼 수 있는지 확인해 보세요.';
+                '개인정보 추측 및 패턴 분석 공격을 무사히 방어했습니다! 이어서 2단계 \'초고속 무작위 대입 공격\'도 버텨낼 수 있는지 도전해 보세요.';
             if (resultPatternDetail) {
-                resultPatternDetail.textContent = '[PASS] 강화 패턴 및 상용 사전 딕셔너리 전체 통과 — 안전';
+                resultPatternDetail.textContent = '[PASS] 지능형 패턴 공격 디펜스 성공: 개인정보 및 연속 패턴 미검출';
                 resultPatternDetail.style.display = 'block';
                 resultPatternDetail.style.color = 'var(--neon-green)';
                 resultPatternDetail.style.borderLeftColor = 'var(--neon-green)';
@@ -1467,7 +1582,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (cardEl2) cardEl2.classList.add('result-card-safe');
 
             // ★ 통과 시 버튼: 2단계(무작위 대입 공격 디펜스) 버튼만
-            linkToModeBBtn.textContent   = '2단계: 무작위 대입 공격 디펜스';
+            linkToModeBBtn.textContent   = '2단계: 무작위 대입 공격 디펜스 도전 ➔';
             linkToModeBBtn.style.display = 'block';
             retryBtn.style.display       = 'none';   // 재도전 버튼 숨김
             guidePopupBtn.style.display  = 'none';   // 가이드 버튼 숨김
