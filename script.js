@@ -620,137 +620,187 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function checkPatternAttack(password, lastName, firstName, birthday, phone) {
-        const dictionary = [];
-        
-        // 1. 조합 재료 수집
-        const birthYear = document.getElementById('select-birth-year')?.value || '2000';
-        const birthYear2 = birthYear.slice(2); // 생년 2자리
-        const birthYear4 = birthYear; // 생년 4자리
-        
-        const birthMonth = document.getElementById('select-birth-month')?.value || '10';
-        const birthDay = document.getElementById('select-birth-day')?.value || '24';
-        
-        const birthMD3 = (birthMonth.startsWith('0') ? birthMonth.slice(1) : birthMonth) + birthDay; // 생월일 3자리 (예: 524)
-        const birthMD4 = birthMonth + birthDay; // 생월일 4자리 (예: 0524)
-        
-        const birthYMD6 = birthYear2 + birthMonth + birthDay; // 생년월일 6자리
-        const birthYMD8 = birthYear4 + birthMonth + birthDay; // 생년월일 8자리
-        
-        const phone1 = document.getElementById('input-phone-1')?.value || '010';
-        const phone2 = document.getElementById('input-phone-2')?.value || '';
-        const phone3 = document.getElementById('input-phone-3')?.value || '';
-        
-        const lastNameEng = hangulToQwerty(lastName);
-        const firstNameEng = hangulToQwerty(firstName);
-        const nameEng = lastNameEng + firstNameEng;
 
-        // 재료 리스트업 (값과 설명 매칭)
-        const rawMaterials = [
-            { val: lastNameEng, desc: '성(영타)' },
-            { val: nameEng, desc: '성+이름(영타)' },
-            { val: firstNameEng, desc: '이름(영타)' },
-            { val: birthYear2, desc: '생년(2자리)' },
-            { val: birthYear4, desc: '생년(4자리)' },
-            { val: birthMD3, desc: '생월일(3자리)' },
-            { val: birthMD4, desc: '생월일(4자리)' },
-            { val: birthYMD6, desc: '생년월일(6자리)' },
-            { val: birthYMD8, desc: '생년월일(8자리)' },
-            { val: phone2, desc: '전화번호 중간자리' },
-            { val: phone3, desc: '전화번호 뒷자리' }
-        ].filter(item => item.val.trim().length > 0);
+        // ═══════════════════════════════════════════════════════════════
+        // 1. 재료 원소 추출
+        // ═══════════════════════════════════════════════════════════════
 
-        // 첫 글자가 영어인 경우 첫 글자만 대문자로 변형한 재료 추가
-        const materials = [];
-        rawMaterials.forEach(item => {
-            materials.push(item);
-            if (/^[a-zA-Z]/.test(item.val)) {
-                const capVal = item.val.charAt(0).toUpperCase() + item.val.slice(1);
-                if (capVal !== item.val) {
-                    materials.push({ val: capVal, desc: item.desc + '(첫글자 대문자)' });
-                }
+        // ── 1.1 이름 관련 (한영자판 변환 + 한글 원문) ──
+        const lastQwerty  = hangulToQwerty(lastName);
+        const firstQwerty = hangulToQwerty(firstName);
+        const fullQwerty  = lastQwerty + firstQwerty;
+
+        // 풀네임 이니셜(한영자판): 성 QWERTY 첫자 + 이름 QWERTY 첫자
+        const fullInitialQ  = (lastQwerty[0]  || '') + (firstQwerty[0] || '');
+        // 이름 이니셜(한영자판): 이름 QWERTY 첫자만
+        const firstInitialQ = firstQwerty[0] || '';
+        // 한글 초성 자음 (한영자판 변환) - 성+이름 전체 초성
+        const consonantsQ   = getHangulInitials(lastName + firstName);
+
+        // 이름 후보 (원형, 대소문자 변형 전)
+        const nameBase = [
+            { val: lastQwerty,           desc: '성(한영자판)' },
+            { val: firstQwerty,          desc: '이름(한영자판)' },
+            { val: fullQwerty,           desc: '성+이름 풀네임(한영자판)' },
+            { val: fullInitialQ,         desc: '풀네임 이니셜(한영자판)' },
+            { val: firstInitialQ,        desc: '이름 이니셜(한영자판)' },
+            { val: consonantsQ,          desc: '한글 초성(한영자판)' },
+            { val: lastName,             desc: '성(한글)' },
+            { val: firstName,            desc: '이름(한글)' },
+            { val: lastName + firstName, desc: '성+이름 풀네임(한글)' },
+        ].filter(c => c.val && c.val.trim().length > 0);
+
+        // 대소문자 변형 적용 (영문/QWERTY 계열만)
+        const nameElements = [];
+        for (const c of nameBase) {
+            nameElements.push(c); // 원형 그대로
+            if (/^[a-zA-Z]/.test(c.val)) {
+                const lower    = c.val.toLowerCase();
+                const upper    = c.val.toUpperCase();
+                const capFirst = lower[0].toUpperCase() + lower.slice(1);
+                // 카멜 케이스: 성+이름 풀네임일 때 성/이름 각각 첫자 대문자
+                const camel = (c.val === fullQwerty && lastQwerty && firstQwerty)
+                    ? (lastQwerty[0].toUpperCase()  + lastQwerty.slice(1).toLowerCase()
+                       + firstQwerty[0].toUpperCase() + firstQwerty.slice(1).toLowerCase())
+                    : null;
+
+                if (lower    !== c.val)                          nameElements.push({ val: lower,    desc: c.desc + '(전체소문자)' });
+                if (capFirst !== c.val && capFirst !== lower)    nameElements.push({ val: capFirst, desc: c.desc + '(첫글자대문자)' });
+                if (camel && camel !== c.val && camel !== capFirst)
+                                                                 nameElements.push({ val: camel,    desc: c.desc + '(카멜케이스)' });
+                if (upper    !== c.val && upper !== capFirst)    nameElements.push({ val: upper,    desc: c.desc + '(전체대문자)' });
             }
-        });
-
-        // 2개 연속된 연락처 숫자 쌍 (중간+뒤 조합)
-        if (phone2 && phone3) {
-            materials.push({ val: phone2 + phone3, desc: '전화번호 연속 조합' });
         }
 
-        // 특수문자 조합 리스트
-        const specialSuffixes = [
-            { val: '!', desc: '특수문자(!)' },
-            { val: '@', desc: '특수문자(@)' },
-            { val: '#', desc: '특수문자(#)' },
-            { val: '$', desc: '특수문자($)' },
-            { val: '%', desc: '특수문자(%)' },
-            { val: '^', desc: '특수문자(^)' },
-            { val: '&', desc: '특수문자(&)' },
-            { val: '*', desc: '특수문자(*)' },
-            { val: '?', desc: '특수문자(?)' },
-            { val: '!!', desc: '특수문자(!!)' },
-            { val: '!@', desc: '특수문자(!@)' },
-            { val: '@!', desc: '특수문자(@!)' },
-            { val: '@@', desc: '특수문자(@@)' },
-            { val: '@#', desc: '특수문자(@#)' }
+        // ── 1.2 생년월일 요소 ──
+        const bYear  = document.getElementById('select-birth-year')?.value  || '2000';
+        const bMonth = document.getElementById('select-birth-month')?.value || '01';
+        const bDay   = document.getElementById('select-birth-day')?.value   || '01';
+
+        const bMonthNZ = bMonth.replace(/^0/, '');  // 앞 0 제거
+        const bDayNZ   = bDay.replace(/^0/, '');
+        const bY2      = bYear.slice(2);
+
+        const dateElements = [
+            { val: bYear + bMonth + bDay,       desc: '생년월일 YYYYMMDD(8자리)' },
+            { val: bY2   + bMonth + bDay,       desc: '생년월일 YYMMDD(6자리)' },
+            { val: bMonth + bDay,               desc: '생일 MMDD(4자리)' },
+            { val: bYear,                       desc: '출생연도 YYYY(4자리)' },
+            { val: bY2,                         desc: '출생연도 YY(2자리)' },
+            { val: bMonthNZ + '.' + bDayNZ,     desc: '생일 M.D(점구분)' },
+            { val: bMonthNZ + bDay,             desc: '생일 M+DD(월0제거)' },
+            { val: bMonth   + bDayNZ,           desc: '생일 MM+D(일0제거)' },
+            { val: bMonthNZ + bDayNZ,           desc: '생일 M+D(둘다0제거)' },
+        ].filter(d => d.val && d.val.trim().length > 0 && d.val !== '.');
+
+        // ── 1.3 전화번호 요소 ──
+        const ph2 = document.getElementById('input-phone-2')?.value || '';
+        const ph3 = document.getElementById('input-phone-3')?.value || '';
+
+        const phoneElements = [];
+        if (ph3)           phoneElements.push({ val: ph3,        desc: '전화번호 뒷자리(4자리)' });
+        if (ph2)           phoneElements.push({ val: ph2,        desc: '전화번호 가운데(3~4자리)' });
+        if (ph2 && ph3)    phoneElements.push({ val: ph2 + ph3,  desc: '전화번호 가운데+뒷자리(7~8자리)' });
+
+        // ── 1.4 특수문자 세트 ──
+        const specialElements = [
+            // 단일
+            { val: '!',    desc: '특수(!)' },   { val: '@',  desc: '특수(@)' },
+            { val: '#',    desc: '특수(#)' },   { val: '$',  desc: '특수($)' },
+            { val: '%',    desc: '특수(%)' },   { val: '^',  desc: '특수(^)' },
+            { val: '&',    desc: '특수(&)' },   { val: '*',  desc: '특수(*)' },
+            { val: '?',    desc: '특수(?)' },   { val: '_',  desc: '특수(_)' },
+            { val: '+',    desc: '특수(+)' },
+            // 2자 조합
+            { val: '!!',   desc: '특수(!!)' },  { val: '!@', desc: '특수(!@)' },
+            { val: '@!',   desc: '특수(@!)' },  { val: '@@', desc: '특수(@@)' },
+            { val: '!#',   desc: '특수(!#)' },  { val: '@#', desc: '특수(@#)' },
+            { val: '#!',   desc: '특수(#!)' },  { val: '!$', desc: '특수(!$)' },
+            // 3자/4자 조합
+            { val: '!@#',  desc: '특수(!@#)'  },
+            { val: '!@#$', desc: '특수(!@#$)' },
+            { val: '@#$',  desc: '특수(@#$)'  },
+            { val: '#$%',  desc: '특수(#$%)'  },
         ];
 
-        // 2. 조합 알고리즘 실행 (2개 ~ 3개 재료 순서 섞어서 조합 단어장 구성)
-        // 2개 재료 조합
-        for (let i = 0; i < materials.length; i++) {
-            for (let j = 0; j < materials.length; j++) {
+        // ═══════════════════════════════════════════════════════════════
+        // 2. 위치 조합 전수 생성
+        // ═══════════════════════════════════════════════════════════════
+
+        const allPersonal = [...nameElements, ...dateElements, ...phoneElements];
+        const dictionary  = [];
+        const add = (pw, pattern) => { if (pw.length >= 3) dictionary.push({ password: pw, pattern }); };
+
+        // 2.1 단일 재료
+        for (const m of allPersonal) add(m.val, m.desc);
+
+        // 2.2 단일 재료 + 특수문자 (뒤 / 앞)
+        for (const m of allPersonal) {
+            for (const s of specialElements) {
+                add(m.val + s.val, `${m.desc} + ${s.desc}`);   // 뒤
+                add(s.val + m.val, `${s.desc} + ${m.desc}`);   // 앞
+            }
+        }
+
+        // 2.3 두 재료 순서 조합 (A + B) + 특수 중간 삽입 (A + 특수 + B)
+        for (let i = 0; i < allPersonal.length; i++) {
+            for (let j = 0; j < allPersonal.length; j++) {
                 if (i === j) continue;
-                const combVal = materials[i].val + materials[j].val;
-                if (combVal.length >= 4) {
-                    dictionary.push({
-                        password: combVal,
-                        pattern: `${materials[i].desc} + ${materials[j].desc}`
-                    });
+                const A = allPersonal[i], B = allPersonal[j];
+                // A + B
+                add(A.val + B.val, `${A.desc} + ${B.desc}`);
+                // A + 특수 + B (중간 삽입)
+                for (const s of specialElements) {
+                    add(A.val + s.val + B.val, `${A.desc} + ${s.desc}(중간) + ${B.desc}`);
                 }
             }
         }
 
-        // 3개 재료 조합 (재료 A + 재료 B + 특수문자)
-        for (let i = 0; i < materials.length; i++) {
-            for (let j = 0; j < materials.length; j++) {
+        // 2.4 두 재료 + 특수문자 (뒤 / 앞)
+        for (let i = 0; i < allPersonal.length; i++) {
+            for (let j = 0; j < allPersonal.length; j++) {
                 if (i === j) continue;
-                for (let s of specialSuffixes) {
-                    const combVal = materials[i].val + materials[j].val + s.val;
-                    if (combVal.length >= 4) {
-                        dictionary.push({
-                            password: combVal,
-                            pattern: `${materials[i].desc} + ${materials[j].desc} + ${s.desc}`
-                        });
-                    }
+                const A = allPersonal[i], B = allPersonal[j];
+                for (const s of specialElements) {
+                    add(A.val + B.val + s.val, `${A.desc} + ${B.desc} + ${s.desc}`);          // 뒤
+                    add(s.val + A.val + B.val, `${s.desc}(앞) + ${A.desc} + ${B.desc}`);      // 앞
                 }
             }
         }
 
-        // 상용 취약 단어장 확장 (기존 것도 유지)
+        // 2.5 상용 취약 패턴
         const commonPatterns = [
-            { val: 'asdf', pattern: '키보드 연속 패턴(asdf)' },
-            { val: 'qwer', pattern: '키보드 연속 패턴(qwer)' },
-            { val: 'zxcv', pattern: '키보드 연속 패턴(zxcv)' },
-            { val: '1234', pattern: '연속 숫자(1234)' },
-            { val: '12345678', pattern: '연속 숫자(12345678)' },
-            { val: '1111', pattern: '반복 숫자(1111)' },
-            { val: 'password', pattern: '흔한 단어(password)' },
-            { val: 'admin', pattern: '흔한 관리자 계정(admin)' }
+            { val: '1234',      pattern: '연속숫자(1234)' },
+            { val: '12345',     pattern: '연속숫자(12345)' },
+            { val: '123456',    pattern: '연속숫자(123456)' },
+            { val: '12345678',  pattern: '연속숫자(12345678)' },
+            { val: '1111',      pattern: '반복숫자(1111)' },
+            { val: '0000',      pattern: '반복숫자(0000)' },
+            { val: '9999',      pattern: '반복숫자(9999)' },
+            { val: 'asdf',      pattern: '키보드패턴(asdf)' },
+            { val: 'qwer',      pattern: '키보드패턴(qwer)' },
+            { val: 'zxcv',      pattern: '키보드패턴(zxcv)' },
+            { val: 'qwerty',    pattern: '키보드패턴(qwerty)' },
+            { val: '1q2w3e',    pattern: '키보드패턴(1q2w3e)' },
+            { val: '1q2w3e4r',  pattern: '키보드패턴(1q2w3e4r)' },
+            { val: 'password',  pattern: '흔한단어(password)' },
+            { val: 'admin',     pattern: '흔한단어(admin)' },
+            { val: 'iloveyou',  pattern: '흔한단어(iloveyou)' },
+            { val: 'letmein',   pattern: '흔한단어(letmein)' },
+            { val: 'welcome',   pattern: '흔한단어(welcome)' },
+            { val: 'monkey',    pattern: '흔한단어(monkey)' },
+            { val: 'dragon',    pattern: '흔한단어(dragon)' },
         ];
-
-        for (let cp of commonPatterns) {
-            dictionary.push({
-                password: cp.val,
-                pattern: cp.pattern
-            });
-            for (let s of specialSuffixes) {
-                dictionary.push({
-                    password: cp.val + s.val,
-                    pattern: `${cp.pattern} + ${s.desc}`
-                });
-            }
+        for (const cp of commonPatterns) {
+            add(cp.val, cp.pattern);
+            for (const s of specialElements) add(cp.val + s.val, `${cp.pattern} + ${s.desc}`);
         }
 
-        const found = dictionary.find(item => password.toLowerCase().includes(item.password.toLowerCase()));
+        // ═══════════════════════════════════════════════════════════════
+        // 3. 검사 (includes: 부분 문자열 포함 여부)
+        // ═══════════════════════════════════════════════════════════════
+        const pwLower = password.toLowerCase();
+        const found = dictionary.find(item => pwLower.includes(item.password.toLowerCase()));
         return found || null;
     }
 
@@ -973,8 +1023,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('simulation-progress-area').style.display = 'none';
         document.getElementById('simulation-result-report').style.display = 'block';
 
-        // 완료 시에 '재도전' 버튼 표시 복구
-        retryBtn.style.display = 'block';
+        // 2단계 완료: 재도전 버튼 복구, 2단계 버튼 숨김
+        retryBtn.textContent         = '다른 조건으로 재도전';
+        retryBtn.style.display       = 'block';
+        linkToModeBBtn.style.display = 'none';
 
         const resultMessage = document.getElementById('result-message');
         const resultTestedPassword = document.getElementById('result-tested-password');
@@ -1009,7 +1061,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 guidePopupBtn.style.display = 'block';
                 resultAnalysisComment.innerHTML = `<span style="color:var(--amber);">[보안 취약 등급: 경고]</span> 개인정보 및 연속 문자 패턴은 잘 피했습니다. 그러나 비밀번호가 단순하거나 짧아 무차별 대입 장비에 의해 단 ${formatTime(seconds)} 만에 해킹당합니다. 자릿수를 늘리고, 대소문자, 숫자, 특수문자를 조합하여 더 복잡하게 설정하세요.`;
             } else {
-                // 조합 패턴도 안 쓰고 브루트포스로도 엄청 긴 시간 버티는 경우 (하루 이상 - 완벽 성공이므로 안내 버튼 숨김)
+                // 조합 패턴도 안 쓰고 브루트포스로도 엄청 긴 시간 버티는 경우 (하루 이상 - 완벽 성공)
                 guidePopupBtn.style.display = 'none';
                 resultAnalysisComment.innerHTML = `<span style="color:var(--green);">[보안 취약 등급: 최상]</span> 지능형 패턴 추측 공격에 안전할 뿐만 아니라, 초고속 무작위 대입을 시도하더라도 해킹까지 약 ${formatTime(seconds)}이 소요됩니다. 완벽하게 안전하며 훌륭한 수준의 비밀번호 보안을 갖추고 있습니다.`;
             }
@@ -1284,60 +1336,35 @@ document.addEventListener('DOMContentLoaded', () => {
     // (checkPatternAttack은 이미 강화된 딕셔너리를 공통 사용하므로 여기서 추가 패턴 보강)
     const _checkPatternAttackOrig = checkPatternAttack;
 
-    // 옵션 B: 추가 패턴 확장 (연도, PIN, iloveyou 계열, 키보드 확장)
+    // 옵션 B: 추가 패턴 확장 (연도 범위, PIN 계열 — base 함수 이후 보충)
     function checkPatternAttackEnhanced(password, lastName, firstName, birthday, phone) {
-        // 기존 패턴 우선 검사
+        // 강화된 기본 패턴 우선 검사
         const found = _checkPatternAttackOrig(password, lastName, firstName, birthday, phone);
         if (found) return found;
 
-        // 추가 확장 패턴 딕셔너리
+        // ── 추가: base에 없는 고유 패턴 ──
         const extraPatterns = [];
-
-        // 연도 패턴 (1960~현재)
         const curYear = new Date().getFullYear();
+
+        // 연도 패턴 (1960~현재) — 개인 생년 외의 연도도 커버
         for (let y = 1960; y <= curYear; y++) {
             extraPatterns.push({ password: String(y), pattern: `연도 패턴(${y})` });
         }
 
-        // 4자리 반복/연속 PIN
+        // 4자리 반복/연속 PIN (0000~9999 반복, 0123~6789 연속)
         for (let d = 0; d <= 9; d++) {
             extraPatterns.push({ password: String(d).repeat(4), pattern: `반복 PIN(${String(d).repeat(4)})` });
         }
-        // 연속 4자리
         for (let d = 0; d <= 6; d++) {
             extraPatterns.push({ password: `${d}${d+1}${d+2}${d+3}`, pattern: `연속 PIN(${d}${d+1}${d+2}${d+3})` });
         }
 
-        // 흔한 영어 단어
-        const commonWords = [
-            { val: 'iloveyou',    desc: '흔한 단어(iloveyou)' },
-            { val: 'letmein',     desc: '흔한 단어(letmein)' },
-            { val: 'welcome',     desc: '흔한 단어(welcome)' },
-            { val: 'monkey',      desc: '흔한 단어(monkey)' },
-            { val: 'dragon',      desc: '흔한 단어(dragon)' },
-            { val: 'master',      desc: '흔한 단어(master)' },
-            { val: 'sunshine',    desc: '흔한 단어(sunshine)' },
-            { val: 'shadow',      desc: '흔한 단어(shadow)' },
-            { val: 'superman',    desc: '흔한 단어(superman)' },
-            { val: 'batman',      desc: '흔한 단어(batman)' },
-            { val: 'login',       desc: '흔한 단어(login)' },
-            { val: 'qwerty123',   desc: '흔한 조합(qwerty123)' },
-            { val: 'abc123',      desc: '흔한 조합(abc123)' },
-            { val: 'pass1234',    desc: '흔한 조합(pass1234)' },
+        // 추가 흔한 단어
+        const extraWords = [
+            'master', 'sunshine', 'shadow', 'superman', 'batman',
+            'login', 'qwerty123', 'abc123', 'pass1234', 'poiuyt', 'mnbvcxz', '!@#$%', '!@#$%^'
         ];
-        commonWords.forEach(w => extraPatterns.push({ password: w.val, pattern: w.desc }));
-
-        // 확장 키보드 패턴
-        const kbPatterns = ['!@#$%', '!@#$%^', 'qwerty', 'poiuyt', 'mnbvcxz', '1q2w3e', '1q2w3e4r'];
-        kbPatterns.forEach(k => extraPatterns.push({ password: k, pattern: `키보드 패턴(${k})` }));
-
-        // 생일 연도 조합 (birthday = MMDD)
-        if (birthday && birthday.length === 4) {
-            for (let y = 1970; y <= curYear; y++) {
-                extraPatterns.push({ password: birthday + String(y), pattern: `생년월일 전체(${birthday}${y})` });
-                extraPatterns.push({ password: String(y) + birthday, pattern: `생년월일 전체(${y}${birthday})` });
-            }
-        }
+        extraWords.forEach(w => extraPatterns.push({ password: w, pattern: `흔한 패턴(${w})` }));
 
         const found2 = extraPatterns.find(item =>
             password.toLowerCase().includes(item.password.toLowerCase())
@@ -1361,56 +1388,60 @@ document.addEventListener('DOMContentLoaded', () => {
         resultTestedPassword.textContent = password;
         const matchedPattern = checkPatternAttackEnhanced(password, lastName, firstName, birthday, phone);
 
-        // 버튼 영역 재정의
-        const retryBtn = document.getElementById('retry-btn');
+        // 버튼 참조
+        const retryBtn       = document.getElementById('retry-btn');
         const linkToModeBBtn = document.getElementById('link-to-mode-b-btn');
-        
-        // 공격 완료했으므로 재도전 버튼 항상 표시 노출
-        retryBtn.style.display = 'block';
+        const guidePopupBtn  = document.getElementById('guide-popup-btn');
 
         if (matchedPattern) {
-            isAAttacked = true; // 예측형 조합 공격 탐지 상태 활성화
+            // ── 1단계 탐지: 취약 ──
+            isAAttacked = true;
             playSound('fail');
-            resultMessage.textContent = '디펜스 결과';
-            resultMessage.style.color = 'var(--neon-red)';
+            resultMessage.textContent    = '디펜스 결과';
+            resultMessage.style.color      = 'var(--neon-red)';
             resultMessage.style.textShadow = 'var(--glow-red)';
-            resultAttempts.textContent = '1 (지능형 조합 매칭)';
-            resultTimeTaken.textContent = '0.01초 미만';
+            resultAttempts.textContent   = '1 (지능형 조합 매칭)';
+            resultTimeTaken.textContent  = '0.01초 미만';
             resultAnalysisComment.textContent =
-                `비밀번호가 개인정보 조합 패턴인 ${matchedPattern.pattern}에 매칭되어 해커가 사전 분석으로 단 0.01초 만에 풀어냈습니다.`;
-            // 옵션 B: 상세 패턴 표시
+                `비밀번호가 개인정보 조합 패턴인 "${matchedPattern.pattern}"에 매칭되어 해커가 사전 분석으로 단 0.01초 만에 풀어냈습니다.`;
             if (resultPatternDetail) {
                 resultPatternDetail.textContent = `[MATCH] 검출된 패턴: ${matchedPattern.pattern}`;
                 resultPatternDetail.style.display = 'block';
+                resultPatternDetail.style.color = 'var(--red)';
+                resultPatternDetail.style.borderLeftColor = 'var(--red)';
+                resultPatternDetail.style.background = 'rgba(255,0,60,0.04)';
             }
-            
-            // 취약한 경우: 다른 방법으로 재도전 / 무작위 대입 공격 디펜스 / 안전한 비밀번호 안내 버튼 노출
-            retryBtn.textContent = '다른 방법으로 재도전';
-            linkToModeBBtn.textContent = '무작위 대입 공격 디펜스';
-            linkToModeBBtn.style.display = 'block';
-            document.getElementById('guide-popup-btn').style.display = 'block';
+
+            // ★ 탐지 시 버튼: 재도전 + 안전한 비밀번호 만드는 법만
+            retryBtn.textContent        = '다른 방법으로 재도전';
+            retryBtn.style.display      = 'block';
+            guidePopupBtn.style.display = 'block';
+            linkToModeBBtn.style.display = 'none';   // 2단계 버튼 숨김
+
         } else {
-            isAAttacked = false; // 예측형 조합 공격 탐지 상태 비활성화
+            // ── 1단계 통과: 안전 ──
+            isAAttacked = false;
             playSound('success');
-            resultMessage.textContent = '디펜스 결과';
-            resultMessage.style.color = 'var(--neon-green)';
+            resultMessage.textContent    = '디펜스 결과';
+            resultMessage.style.color      = 'var(--neon-green)';
             resultMessage.style.textShadow = 'var(--glow-green)';
-            resultAttempts.textContent = '일치 항목 없음';
-            resultTimeTaken.textContent = '대입 불가';
+            resultAttempts.textContent   = '일치 항목 없음';
+            resultTimeTaken.textContent  = '대입 불가';
             resultAnalysisComment.textContent =
-                '지능형 패턴 및 개인정보 조합 추측 공격에 안전합니다. 무작위 대입 공격 디펜스도 진행하시겠습니까?';
+                '지능형 패턴 및 개인정보 조합 추측 공격에 안전합니다! 이제 2단계 — 초고속 무작위 대입 공격을 버텨낼 수 있는지 확인해 보세요.';
             if (resultPatternDetail) {
                 resultPatternDetail.textContent = '[PASS] 강화 패턴 및 상용 사전 딕셔너리 전체 통과 — 안전';
                 resultPatternDetail.style.display = 'block';
-                resultPatternDetail.style.color = 'var(--neon-green)';
-                resultPatternDetail.style.borderLeftColor = 'var(--neon-green)';
-                resultPatternDetail.style.background = 'rgba(0,255,102,0.04)';
+                resultPatternDetail.style.color = 'var(--green)';
+                resultPatternDetail.style.borderLeftColor = 'var(--green)';
+                resultPatternDetail.style.background = 'rgba(0,255,65,0.04)';
             }
-            // 안전한 경우: 예측 공격 단계에서는 안내 버튼 일단 숨김 (무차별 공격 결과를 보기 위해)
-            retryBtn.textContent = '다른 조건으로 재도전';
-            linkToModeBBtn.textContent = '무작위 대입 공격 디펜스도 해보기';
+
+            // ★ 통과 시 버튼: 2단계(무작위 대입 공격 디펜스) 버튼만
+            linkToModeBBtn.textContent   = '2단계: 무작위 대입 공격 디펜스';
             linkToModeBBtn.style.display = 'block';
-            document.getElementById('guide-popup-btn').style.display = 'none';
+            retryBtn.style.display       = 'none';   // 재도전 버튼 숨김
+            guidePopupBtn.style.display  = 'none';   // 가이드 버튼 숨김
         }
     };
 
@@ -1498,6 +1529,63 @@ document.addEventListener('DOMContentLoaded', () => {
             e.target.closest('.modal-overlay').style.display = 'none';
         });
     });
+
+    // ─── 비밀번호 입력창: 한글 입력 시 QWERTY 영타로 자동 변환 ───
+    (function setupPasswordHangulConvert() {
+        // 자모(미완성 자음·모음) → QWERTY 변환 테이블
+        const jamoMap = {
+            // 자음
+            'ㄱ':'r',  'ㄲ':'R',  'ㄳ':'rt', 'ㄴ':'s',  'ㄵ':'sw',
+            'ㄶ':'sg', 'ㄷ':'e',  'ㄸ':'E',  'ㄹ':'f',  'ㄺ':'fr',
+            'ㄻ':'fa', 'ㄼ':'fq', 'ㄽ':'ft', 'ㄾ':'fx', 'ㄿ':'fv',
+            'ㅀ':'fg', 'ㅁ':'a',  'ㅂ':'q',  'ㅃ':'Q',  'ㅄ':'qt',
+            'ㅅ':'t',  'ㅆ':'T',  'ㅇ':'d',  'ㅈ':'w',  'ㅉ':'W',
+            'ㅊ':'c',  'ㅋ':'z',  'ㅌ':'x',  'ㅍ':'v',  'ㅎ':'g',
+            // 모음
+            'ㅏ':'k',  'ㅐ':'o',  'ㅑ':'i',  'ㅒ':'O',  'ㅓ':'j',
+            'ㅔ':'p',  'ㅕ':'u',  'ㅖ':'P',  'ㅗ':'h',  'ㅘ':'hk',
+            'ㅙ':'ho', 'ㅚ':'hl', '㛤':'y', 'ㅛ':'y',  'ㅜ':'n',
+            'ㅝ':'nj', 'ㅞ':'np', 'ㅟ':'nl', 'ㅠ':'b',  'ㅡ':'m',
+            'ㅢ':'ml', 'ㅣ':'l',
+        };
+
+        // 한글 문자(음절 + 자모) 포함 여부 체크 후 QWERTY 변환
+        function convertHangul(val) {
+            if (!/[\uAC00-\uD7A3\u3131-\u3163]/.test(val)) return null;
+            let result = '';
+            for (const ch of val) {
+                const code = ch.charCodeAt(0);
+                if (code >= 0xAC00 && code <= 0xD7A3) {
+                    // 완성형 음절 → hangulToQwerty (기존 함수 활용)
+                    result += hangulToQwerty(ch);
+                } else if (jamoMap[ch] !== undefined) {
+                    // 미완성 자모 → 직접 매핑
+                    result += jamoMap[ch];
+                } else {
+                    result += ch;
+                }
+            }
+            return result;
+        }
+
+        // compositionend: IME가 한 음절을 확정하는 시점에 변환
+        inputPassword.addEventListener('compositionend', () => {
+            const converted = convertHangul(inputPassword.value);
+            if (converted !== null) {
+                inputPassword.value = converted;
+                validateInputsAndCalculate();
+            }
+        });
+
+        // input: 붙여넣기 / compositionend 후 추가 input 이벤트 대응
+        inputPassword.addEventListener('input', () => {
+            const converted = convertHangul(inputPassword.value);
+            if (converted !== null) {
+                inputPassword.value = converted;
+                validateInputsAndCalculate();
+            }
+        });
+    })();
 
     // Initial load check & start continuous Matrix background
     startMatrixEffect();
