@@ -7,17 +7,21 @@
     --green:      #00ff41;
     --green-dim:  #00c832;
     --green-dark: rgba(0,255,65,0.08);
+    --neon-green: #39ff6e;          /* 안전 결과 강조색 */
     --red:        #ff003c;
     --red-dim:    rgba(255,0,60,0.12);
+    --neon-red:   #ff1a4f;          /* 위험 결과 강조색 */
     --cyan:       #00fff9;
     --cyan-dim:   rgba(0,255,249,0.08);
     --amber:      #ffb700;
-    --text-main:  #e8fff0;       /* 밝게 */
-    --text-muted: #8fbf99;       /* 충분히 읽히는 밝기 */
+    --text-main:  #e8fff0;          /* 밝게 */
+    --text-muted: #8fbf99;          /* 충분히 읽히는 밝기 */
     --border:     rgba(0,255,65,0.18);
     --border-hot: rgba(0,255,65,0.55);
     --glow-g:     0 0 8px rgba(0,255,65,0.6), 0 0 20px rgba(0,255,65,0.2);
+    --glow-green: 0 0 12px rgba(57,255,110,0.9), 0 0 30px rgba(0,255,65,0.5); /* 안전 텍스트 글로우 */
     --glow-r:     0 0 8px rgba(255,0,60,0.7), 0 0 20px rgba(255,0,60,0.3);
+    --glow-red:   0 0 12px rgba(255,26,79,0.9), 0 0 30px rgba(255,0,60,0.5);  /* 위험 텍스트 글로우 */
     --glow-c:     0 0 8px rgba(0,255,249,0.5);
     --font-mono:  'Share Tech Mono', 'Fira Code', monospace;
     --font-title: 'Orbitron', monospace;
@@ -951,14 +955,42 @@ button:disabled {
     border-color: var(--red);
 }
 
-@keyframes safe-glow {
-    0%   { box-shadow: 0 0 10px rgba(0,255,65,0.1); border-color: var(--green); }
-    50%  { box-shadow: 0 0 60px 10px rgba(0,255,65,0.35); border-color: var(--green); }
-    100% { box-shadow: 0 0 10px rgba(0,255,65,0.1); border-color: var(--green); }
+@keyframes safe-pulse {
+    0%   { box-shadow: 0 0 15px rgba(57,255,110,0.2), 0 0 0 0 rgba(57,255,110,0); border-color: var(--neon-green); }
+    40%  { box-shadow: 0 0 80px 20px rgba(57,255,110,0.55), 0 0 120px 30px rgba(0,255,65,0.2); border-color: var(--neon-green); }
+    100% { box-shadow: 0 0 15px rgba(57,255,110,0.2), 0 0 0 0 rgba(57,255,110,0); border-color: var(--neon-green); }
 }
 .overlay-content.safe-glow {
-    animation: safe-glow 1.5s ease-in-out 2;
-    border-color: var(--green);
+    animation: safe-pulse 1.4s ease-in-out 3;
+    border-color: var(--neon-green);
+    border-width: 2px;
+}
+
+/* ── 안전 결과 전체 카드 초록 테마 ── */
+.result-card-safe {
+    background: rgba(0, 18, 6, 0.95) !important;
+    border: 2px solid var(--neon-green) !important;
+    box-shadow: 0 0 40px rgba(57,255,110,0.35), 0 0 80px rgba(0,255,65,0.15), inset 0 0 60px rgba(0,255,65,0.05) !important;
+}
+.result-card-safe .result-title {
+    color: var(--neon-green) !important;
+    text-shadow: var(--glow-green) !important;
+}
+.result-card-safe #result-time-taken {
+    color: var(--neon-green) !important;
+    text-shadow: 0 0 10px rgba(57,255,110,0.8) !important;
+}
+.result-card-safe .result-details {
+    border-color: rgba(57,255,110,0.25) !important;
+    background: rgba(0,255,65,0.04) !important;
+}
+.result-card-safe .result-comment {
+    color: #b8ffd0 !important;
+    border-top-color: rgba(57,255,110,0.2) !important;
+}
+.result-card-safe::before,
+.result-card-safe::after {
+    border-color: var(--neon-green) !important;
 }
 
 /* Countup highlight */

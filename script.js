@@ -1033,37 +1033,45 @@ document.addEventListener('DOMContentLoaded', () => {
         const resultAttempts = document.getElementById('result-attempts');
         const resultTimeTaken = document.getElementById('result-time-taken');
         const resultAnalysisComment = document.getElementById('result-analysis-comment');
-
-        resultMessage.textContent = '디펜스 결과';
-        resultMessage.style.color = 'var(--neon-red)';
-        resultMessage.style.textShadow = 'var(--glow-red)';
+        const cardEl = document.getElementById('result-card');
 
         resultTestedPassword.textContent = password;
         resultAttempts.textContent = attempts.toLocaleString('ko-KR');
         resultTimeTaken.textContent = formatTime(seconds);
 
-        // 총 4가지 경우의 수에 따른 가이드 멘트
         const guidePopupBtn = document.getElementById('guide-popup-btn');
-        if (isAAttacked) {
-            // [Case 1 & 2] 예측형(조합) 공격에서 이미 뚫렸던 경우 (무조건 안내 버튼 노출)
-            guidePopupBtn.style.display = 'block';
-            if (seconds < 86400) {
-                // 무차별 대입으로도 취약한 경우 (하루 미만)
-                resultAnalysisComment.innerHTML = `<span style="color:var(--red);">[보안 취약 등급: 최하]</span> 이미 지능형 패턴 추측 공격으로 0.01초 만에 유추될 뿐만 아니라, 무차별 대입 공격을 통해서도 단 ${formatTime(seconds)} 만에 쉽게 파괴됩니다. 즉시 비밀번호를 변경하십시오.`;
-            } else {
-                // 무차별 대입 성능은 버티지만 예측형 조합 때문에 털린 경우 (하루 이상)
-                resultAnalysisComment.innerHTML = `<span style="color:var(--red);">[보안 취약 등급: 위험]</span> 이 패스워드는 무차별 대입(무작위 탐색)으로는 약 ${formatTime(seconds)} 동안 버틸 수 있어 복잡성은 충분합니다. 그러나, 본인의 개인정보 조합이나 연속 문자 패턴으로 인해 <strong>지능형 패턴 추측 단계(0.01초 미만)에서 즉시 해킹</strong>됩니다. 아무리 길어도 개인정보나 흔한 연속 키보드 배열이 포함되면 안전하지 않습니다.`;
-            }
+        const isSafe = !isAAttacked && seconds >= 86400;
+
+        if (isSafe) {
+            // ★ 2단계까지 완전 통과 — 초록 테마
+            if (cardEl) cardEl.classList.add('result-card-safe');
+            resultMessage.textContent    = '디펜스 결과';
+            resultMessage.style.color      = 'var(--neon-green)';
+            resultMessage.style.textShadow = 'var(--glow-green)';
+            guidePopupBtn.style.display  = 'none';
+            resultAnalysisComment.innerHTML = `<span style="color:var(--neon-green);font-weight:700;">[\ubcf4\uc548 \ucde8\uc57d \ub4f1\uae09: \ucd5c\uc0c1]</span> \uc9c0\ub2a5\ud615 \ud328\ud134 \ucd94\uce21 \uacf5\uaca9\uc5d0 \uc548\uc804\ud560 \ub73b\ub9cc \uc544\ub2c8\ub77c, \ucd08\uace0\uc18d \ubb34\uc791\uc704 \ub300\uc785\uc744 \uc2dc\ub3c4\ud558\ub354\ub77c\ub3c4 \ud574\ud0b9\uae4c지 \uc57d ${formatTime(seconds)}\uc774 \uc18c\uc694\ub429\ub2c8\ub2e4. \uc644\ubcbd\ud558\uac8c \uc548\uc804\ud558\uba70 \ud6cc\ub96d\ud55c \uc218\uc900\uc758 \ube44\ubc00\ubc88\ud638 \ubcf4\uc548\uc744 \uac6c\ucd94\uace0 \uc788\uc2b5\ub2c8\ub2e4.`;
         } else {
-            // [Case 3 & 4] 예측형(조합) 공격은 잘 통과한 경우
-            if (seconds < 86400) {
-                // 조합 패턴은 피했으나 단순 브루트포스에 뚫리는 경우 (하루 미만 - 실패이므로 안내 버튼 노출)
+            // 위험 또는 하나 이상 불통과 — 적색/황색 테마
+            if (cardEl) cardEl.classList.remove('result-card-safe');
+            resultMessage.textContent    = '디펜스 결과';
+            resultMessage.style.color      = 'var(--neon-red)';
+            resultMessage.style.textShadow = 'var(--glow-red)';
+
+            if (isAAttacked) {
                 guidePopupBtn.style.display = 'block';
-                resultAnalysisComment.innerHTML = `<span style="color:var(--amber);">[보안 취약 등급: 경고]</span> 개인정보 및 연속 문자 패턴은 잘 피했습니다. 그러나 비밀번호가 단순하거나 짧아 무차별 대입 장비에 의해 단 ${formatTime(seconds)} 만에 해킹당합니다. 자릿수를 늘리고, 대소문자, 숫자, 특수문자를 조합하여 더 복잡하게 설정하세요.`;
+                if (seconds < 86400) {
+                    resultAnalysisComment.innerHTML = `<span style="color:var(--red);">[\ubcf4\uc548 \ucde8\uc57d \ub4f1\uae09: \ucd5c\ud558]</span> \uc774\ubbf8 \uc9c0\ub2a5\ud615 \ud328\ud134 \ucd94\uce21 \uacf5\uaca9\uc73c\ub85c 0.01\ucd08 \ub9cc\uc5d0 \uc720\ucd94\ub420 \ub73b\ub9cc \uc544\ub2c8\ub77c, \ubb34\ucc28\ubcc4 \ub300\uc785 \uacf5\uaca9\uc744 \ud1b5\ud574\uc11c\ub3c4 \ub2e8 ${formatTime(seconds)} \ub9cc\uc5d0 \uc26d\uac8c \ud30c\uad34\ub429\ub2c8\ub2e4. \uc989\uc2dc \ube44\ubc00\ubc88\ud638\ub97c \ubcc0\uacbd\ud558\uc2ed\uc2dc\uc624.`;
+                } else {
+                    resultAnalysisComment.innerHTML = `<span style="color:var(--red);">[\ubcf4\uc548 \ucde8\uc57d \ub4f1\uae09: \uc704\ud5d8]</span> \uc774 \ud328\uc2a4\uc6cc\ub4dc\ub294 \ubb34\ucc28\ubcc4 \ub300\uc785(\ubb34\uc791\uc704 \ud0d0\uc0c9)\uc73c\ub85c\ub294 \uc57d ${formatTime(seconds)} \ub3d9\uc548 \ubc84\ud2f8 \uc218 \uc788\uc5b4 \ubcf5\uc7a1\uc131\uc740 \ucda9\ubd84\ud569\ub2c8\ub2e4. \uadf8\ub7ec\ub098, \ubcf8\uc778\uc758 \uac1c\uc778\uc815\ubcf4 \uc870\ud569\uc774\ub098 \uc5f0\uc18d \ubb38\uc790 \ud328\ud134\uc73c\ub85c \uc778\ud574 <strong>\uc9c0\ub2a5\ud615 \ud328\ud134 \ucd94\uce21 \ub2e8\uacc4(0.01\ucd08 \ubbf8\ub9cc)\uc5d0\uc11c \uc989\uc2dc \ud574\ud0b9</strong>\ub429\ub2c8\ub2e4. \uc544\ubb34\ub9ac \uae38\uc5b4\ub3c4 \uac1c\uc778\uc815\ubcf4\ub098 \ud754\ud55c \uc5f0\uc18d \ud0a4\ubcf4\ub4dc \ubc30\uc5f4\uc774 \ud3ec\ud568\ub418\uba74 \uc548\uc804\ud558\uc9c0 \uc54a\uc2b5\ub2c8\ub2e4.`;
+                }
             } else {
-                // 조합 패턴도 안 쓰고 브루트포스로도 엄청 긴 시간 버티는 경우 (하루 이상 - 완벽 성공)
-                guidePopupBtn.style.display = 'none';
-                resultAnalysisComment.innerHTML = `<span style="color:var(--green);">[보안 취약 등급: 최상]</span> 지능형 패턴 추측 공격에 안전할 뿐만 아니라, 초고속 무작위 대입을 시도하더라도 해킹까지 약 ${formatTime(seconds)}이 소요됩니다. 완벽하게 안전하며 훌륭한 수준의 비밀번호 보안을 갖추고 있습니다.`;
+                if (seconds < 86400) {
+                    guidePopupBtn.style.display = 'block';
+                    resultAnalysisComment.innerHTML = `<span style="color:var(--amber);">[\ubcf4\uc548 \ucde8\uc57d \ub4f1\uae09: \uacbd\uace0]</span> \uac1c\uc778\uc815\ubcf4 \ubc0f \uc5f0\uc18d \ubb38\uc790 \ud328\ud134\uc740 \uc798 \ud53c\ud588\uc2b5\ub2c8\ub2e4. \uadf8\ub7ec\ub098 \ube44\ubc00\ubc88\ud638\uac00 \ub2e8\uc21c\ud558\uac70\ub098 \uc9e7\uc544 \ubb34\ucc28\ubcc4 \ub300\uc785 \uc7a5\ube44\uc5d0 \uc758\ud574 \ub2e8 ${formatTime(seconds)} \ub9cc\uc5d0 \ud574\ud0b9\ub2f9\ud569\ub2c8\ub2e4. \uc790\ub9bf\uc218\ub97c \ub298\ub9ac\uace0, \ub300\uc18c\ubb38\uc790, \uc22b\uc790, \ud2b9\uc218\ubb38\uc790\ub97c \uc870\ud569\ud558\uc5ec \ub354 \ubcf5\uc7a1\ud558\uac8c \uc124\uc815\ud558\uc138\uc694.`;
+                } else {
+                    guidePopupBtn.style.display = 'none';
+                    resultAnalysisComment.innerHTML = `<span style="color:var(--neon-green);font-weight:700;">[\ubcf4\uc548 \ucde8\uc57d \ub4f1\uae09: \ucd5c\uc0c1]</span> \uc9c0\ub2a5\ud615 \ud328\ud134 \ucd94\uce21 \uacf5\uaca9\uc5d0 \uc548\uc804\ud560 \ub73b\ub9cc \uc544\ub2c8\ub77c, \ucd08\uace0\uc18d \ubb34\uc791\uc704 \ub300\uc785\uc744 \uc2dc\ub3c4\ud558\ub354\ub77c\ub3c4 \ud574\ud0b9\uae4c\uc9c0 \uc57d ${formatTime(seconds)}\uc774 \uc18c\uc694\ub429\ub2c8\ub2e4. \uc644\ubcbd\ud558\uac8c \uc548\uc804\ud558\uba70 \ud6cc\ub96d\ud55c \uc218\uc900\uc758 \ube44\ubc00\ubc88\ud638 \ubcf4\uc548\uc744 \uac16\ucd94\uace0 \uc788\uc2b5\ub2c8\ub2e4.`;
+                }
             }
         }
     }
@@ -1306,13 +1314,13 @@ document.addEventListener('DOMContentLoaded', () => {
             card.className = 'overlay-content';
             void card.offsetWidth; // reflow
 
-            // 단순 DOM color 대신 isAAttacked 혹은 결과 메시지 타이틀 스타일 분기를 활용하여 정확하게 녹색/적색 테마 매핑
             const isHack = isAAttacked || msg.style.color === 'var(--neon-red)' || msg.style.color.includes('255,');
             if (isHack) {
                 card.classList.add('alarm-hack');
+                card.classList.remove('result-card-safe');
                 startParticles('hack');
             } else {
-                card.classList.add('safe-glow');
+                card.classList.add('safe-glow', 'result-card-safe');
                 startParticles('safe');
             }
 
@@ -1411,6 +1419,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 resultPatternDetail.style.borderLeftColor = 'var(--red)';
                 resultPatternDetail.style.background = 'rgba(255,0,60,0.04)';
             }
+            // 카드 위험 테마
+            const cardEl1 = document.getElementById('result-card');
+            if (cardEl1) cardEl1.classList.remove('result-card-safe');
 
             // ★ 탐지 시 버튼: 재도전 + 안전한 비밀번호 만드는 법만
             retryBtn.textContent        = '다른 방법으로 재도전';
@@ -1432,10 +1443,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (resultPatternDetail) {
                 resultPatternDetail.textContent = '[PASS] 강화 패턴 및 상용 사전 딕셔너리 전체 통과 — 안전';
                 resultPatternDetail.style.display = 'block';
-                resultPatternDetail.style.color = 'var(--green)';
-                resultPatternDetail.style.borderLeftColor = 'var(--green)';
-                resultPatternDetail.style.background = 'rgba(0,255,65,0.04)';
+                resultPatternDetail.style.color = 'var(--neon-green)';
+                resultPatternDetail.style.borderLeftColor = 'var(--neon-green)';
+                resultPatternDetail.style.background = 'rgba(57,255,110,0.06)';
             }
+            // 카드 안전 테마
+            const cardEl2 = document.getElementById('result-card');
+            if (cardEl2) cardEl2.classList.add('result-card-safe');
 
             // ★ 통과 시 버튼: 2단계(무작위 대입 공격 디펜스) 버튼만
             linkToModeBBtn.textContent   = '2단계: 무작위 대입 공격 디펜스';
