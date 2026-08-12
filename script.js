@@ -1005,7 +1005,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 roulette.appendChild(span);
             }
 
-            document.getElementById('simulation-status-text').textContent = `대입 크랙 자릿수: ${Math.min(L, lockedCount + 1)}자리 탐색 완료... (초당 1,000억번 대입 중)`;
+            document.getElementById('simulation-status-text').textContent = `현재 크래킹 위치: ${Math.min(L, lockedCount + 1)}번째 자리 해독 중... (초당 1,000억회 비밀번호 대입 중)`;
 
             if (progress < 1) {
                 requestAnimationFrame(animate);
@@ -1038,6 +1038,11 @@ document.addEventListener('DOMContentLoaded', () => {
         resultTestedPassword.textContent = password;
         resultAttempts.textContent = attempts.toLocaleString('ko-KR');
         resultTimeTaken.textContent = formatTime(seconds);
+        // 레이블 복원: 무작위 대입 컨텍스트
+        const rowA = resultAttempts.closest('p');
+        const rowT = resultTimeTaken.closest('p');
+        if (rowA) rowA.childNodes[0].textContent = '원리상 필요 시도 횟수: ';
+        if (rowT) rowT.childNodes[0].textContent = '해킹 예상 소요 시간: ';
 
         const guidePopupBtn = document.getElementById('guide-popup-btn');
         const isSafe = !isAAttacked && seconds >= 86400;
@@ -1410,6 +1415,11 @@ document.addEventListener('DOMContentLoaded', () => {
             resultMessage.style.textShadow = 'var(--glow-red)';
             resultAttempts.textContent   = '1 (지능형 조합 매칭)';
             resultTimeTaken.textContent  = '0.01초 미만';
+            // 레이블 변경: 패턴 공격 컨텍스트
+            const rowAttempts1 = resultAttempts.closest('p');
+            const rowTime1     = resultTimeTaken.closest('p');
+            if (rowAttempts1) rowAttempts1.childNodes[0].textContent = '패턴 매칭 횟수: ';
+            if (rowTime1)     rowTime1.childNodes[0].textContent     = '해독 소요 시간: ';
             resultAnalysisComment.textContent =
                 `비밀번호가 개인정보 조합 패턴인 "${matchedPattern.pattern}"에 매칭되어 해커가 사전 분석으로 단 0.01초 만에 풀어냈습니다.`;
             if (resultPatternDetail) {
@@ -1438,6 +1448,11 @@ document.addEventListener('DOMContentLoaded', () => {
             resultMessage.style.textShadow = 'var(--glow-green)';
             resultAttempts.textContent   = '일치 항목 없음';
             resultTimeTaken.textContent  = '대입 불가';
+            // 레이블 변경: 패턴 공격 컨텍스트
+            const rowAttempts2 = resultAttempts.closest('p');
+            const rowTime2     = resultTimeTaken.closest('p');
+            if (rowAttempts2) rowAttempts2.childNodes[0].textContent = '패턴 매칭 횟수: ';
+            if (rowTime2)     rowTime2.childNodes[0].textContent     = '해독 소요 시간: ';
             resultAnalysisComment.textContent =
                 '지능형 패턴 및 개인정보 조합 추측 공격에 안전합니다! 이제 2단계 — 초고속 무작위 대입 공격을 버텨낼 수 있는지 확인해 보세요.';
             if (resultPatternDetail) {
