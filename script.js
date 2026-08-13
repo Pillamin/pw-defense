@@ -408,8 +408,8 @@ document.addEventListener('DOMContentLoaded', () => {
         return isValid;
     }
 
-    // 검증 실패 시 팝업 안내창 (onProceed 콜백 제공)
-    function showValidationPopup(onProceed) {
+    // 검증 실패 시 팝업 안내창 (onProceed 콜백 및 isModeB 옵션 제공)
+    function showValidationPopup(onProceed, isModeB = false) {
         const N    = (() => {
             let n = 0;
             if (charLowercase.checked) n += 26;
@@ -502,6 +502,24 @@ document.addEventListener('DOMContentLoaded', () => {
         };
         document.getElementById('val-choice-proceed').onclick = () => { 
             popup.style.display = 'none'; 
+            // 조건 불일치 시: 4가지 조합 조건 자동 체크 & 자릿수 1~16 설정
+            charLowercase.checked = true;
+            charUppercase.checked = true;
+            charNumber.checked = true;
+            charSpecial.checked = true;
+
+            // selectMinLength, selectMaxLength 1, 16 옵션 존재 여부 확인 후 적용
+            if (!selectMinLength.querySelector('option[value="1"]')) {
+                const opt1 = document.createElement('option');
+                opt1.value = '1';
+                opt1.textContent = '1';
+                selectMinLength.insertBefore(opt1, selectMinLength.firstChild);
+            }
+            selectMinLength.value = '1';
+            selectMaxLength.value = '16';
+
+            validateInputsAndCalculate();
+
             if (typeof onProceed === 'function') onProceed();
         };
 
@@ -1013,14 +1031,38 @@ document.addEventListener('DOMContentLoaded', () => {
     // Mode B: Brute Force Simulation (with slot roulette lock)
     function runSimulationModeB() {
         const password = inputPassword.value;
+        
         let N = 0;
         if (charLowercase.checked) N += 26;
         if (charUppercase.checked) N += 26;
         if (charNumber.checked) N += 10;
         if (charSpecial.checked) N += 32;
 
-        const minL = parseInt(selectMinLength.value, 10);
+        let minL = parseInt(selectMinLength.value, 10);
+        let maxL = parseInt(selectMaxLength.value, 10);
         const L = password.length;
+
+        // 만약 설정된 조건(N=0이거나 자릿수 범위 밖)과 일치하지 않는 상태로 2단계 진입 시
+        // 4가지 조건을 모두 체크 상태로 만들고, 자릿수를 1~16으로 보정하여 오류 없이 연산되도록 처리
+        if (N === 0 || L < minL || L > maxL) {
+            charLowercase.checked = true;
+            charUppercase.checked = true;
+            charNumber.checked = true;
+            charSpecial.checked = true;
+            N = 94; // 26 + 26 + 10 + 32
+
+            if (!selectMinLength.querySelector('option[value="1"]')) {
+                const opt1 = document.createElement('option');
+                opt1.value = '1';
+                opt1.textContent = '1';
+                selectMinLength.insertBefore(opt1, selectMinLength.firstChild);
+            }
+            selectMinLength.value = '1';
+            selectMaxLength.value = '16';
+            minL = 1;
+            maxL = 16;
+            validateInputsAndCalculate();
+        }
 
         // Math
         let attempts = 0n;
